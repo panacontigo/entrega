@@ -1,0 +1,24 @@
+[build]
+  command = "npm install"
+  publish = "public"
+
+[functions]
+  directory = "functions"
+  included_files = [
+    "./functions/views/**/*.ejs",
+    "./functions/views/**/*.html",
+    "./functions/views/**/*.css",
+    "./functions/views/**/*.js",
+    "./functions/views/layouts/**/*"
+  ]
+
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/index"
+  status = 200
+
+[context.production.environment]
+  NODE_ENV = "production"
+
+[context.deploy-preview.environment]
+  NODE_ENV = "development"

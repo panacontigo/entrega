@@ -1,0 +1,14 @@
+{
+  "name": "mi-proyecto-netlify",
+  "version": "1.0.0",
+  "description": "Proyecto Netlify con Mongoose y Serverless Functions",
+  "main": "functions/index.js",
+  "scripts": {
+    "build": "echo 'building...' && exit 0"
+  },
+  "dependencies": {
+    "ejs": "^3.1.10",
+    "mongoose": "^6.0.0",
+    "serverless-http": "^2.7.0"
+  }
+}
