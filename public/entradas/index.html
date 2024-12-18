@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestión de Entradas</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/@sweetalert2/theme-bootstrap-4/bootstrap-4.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.0/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/exceljs/dist/exceljs.min.js"></script> <!-- Incluir exceljs desde CDN -->
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <style>
+        .menu {
+            margin-top: 50px;
+            margin-bottom: 30px;
+        }
+
+        .ui-autocomplete {
+            max-height: 300px;
+            overflow-y: auto;
+            overflow-x: hidden;
+            z-index: 9999;
+        }
+
+        .ui-autocomplete .ui-menu-item {
+            padding: 5px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .ui-autocomplete .ui-menu-item:hover {
+            background-color: #f8f9fa;
+            cursor: pointer;
+        }
+
+        .ui-autocomplete .ui-menu-item div {
+            padding: 5px;
+        }
+
+        .ui-autocomplete .text-muted {
+            color: #6c757d;
+            font-size: 0.875em;
+        }
+    </style>
+
+    <!-- Agregar estos enlaces en el head -->
+    <link rel="stylesheet" href="https://code.jquery.com/ui/1.13.2/themes/base/jquery-ui.css">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://code.jquery.com/ui/1.13.2/jquery-ui.min.js"></script>
+</head>
+
+<body>
+    <div class="container">
+        <div class="menu">
+            <nav class="navbar navbar-expand-lg navbar-light bg-light">
+                <div class="container-fluid">
+                    <div class="navbar-nav mx-auto">
+                        <a class="nav-link mx-3" href="#" onclick="loadEntradas(); return false;">
+                            <i class="fas fa-list"></i> Lista de Entradas
+                        </a>
+                        <a class="nav-link mx-3" href="#" onclick="loadCreateEntradaForm(); return false;">
+                            <i class="fas fa-plus"></i> Crear Entrada
+                        </a>
+                        <a class="nav-link mx-3" href="#" onclick="confirmarEntradasPendientes(); return false;">
+                            <i class="fas fa-check"></i> Confirmar Entradas
+                        </a>
+                        <a class="nav-link mx-3" href="#" onclick="exportarEntradasPorFecha(); return false;">
+                            <i class="fas fa-check"></i> Exportar Entradas
+                        </a>
+                    </div>
+                </div>
+            </nav>
+        </div>
+        <div id="entradas-container" class="table-responsive"></div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/js/handlersAjax.js"></script>
+    <script>
+        const ajaxHandler = new AjaxHandler('entradas-container');
+
+        async function loadEntradas(page = 1, filters = {}) {
+            try {
+                // Asegurarnos de que page sea un número
+                page = parseInt(page) || 1;
+
+                // Construir query string con los filtros y paginación
+                const queryParams = new URLSearchParams();
+
+                // Agregar página y límite
+                queryParams.append('page', page);
+                queryParams.append('limit', 5);
+
+                // Agregar filtros solo si tienen valor
+                if (filters.name) queryParams.append('name', filters.name);
+                if (filters.code) queryParams.append('code', filters.code);
+                if (filters.description) queryParams.append('description', filters.description);
+                if (filters.createdAt) queryParams.append('createdAt', filters.createdAt);
+
+                console.log('Query params:', queryParams.toString()); // Debug
+
+                const response = await fetch(`/api/entradas?${queryParams.toString()}`);
+                const html = await response.text();
+                document.getElementById('entradas-container').innerHTML = html;
+
+                // Actualizar enlaces de paginación
+                updatePaginationLinks();
+                toggleFilters();
+                clickResponsive();
+                //  toggleDebug();
+            } catch (error) {
+                console.error('Error loading entradas:', error);
+                alert('Error al cargar las entradas: ' + error.message);
+            }
+        }
+        function applyFilters(event) {
+            event.preventDefault(); // Prevenir el envío del formulario
+
+            const filters = {
+                name: document.getElementById('filterName')?.value?.trim() || '',
+                code: document.getElementById('filterCode')?.value?.trim() || '',
+                description: document.getElementById('filterDescription')?.value?.trim() || '',
+                createdAt: document.getElementById('filterCreatedAt')?.value || ''
+            };
+
+            // Eliminar filtros vacíos
+            Object.keys(filters).forEach(key => {
+                if (filters[key] === '' || filters[key] === null || filters[key] === undefined) {
+                    delete filters[key];
+                }
+            });
+
+            // Llamar a loadEntradas con la página 1 y los filtros
+            loadEntradas(1, filters);
+        }
+        function toggleFilters() {
+            const filterSection = document.getElementById('filterSection');
+            const filterIcon = document.getElementById('filterIcon');
+            filterSection.classList.toggle('d-none');
+            filterIcon.classList.toggle('fa-chevron-down');
+            filterIcon.classList.toggle('fa-chevron-up');
+        }
+        function clearFilters() {
+            document.getElementById('filterForm').reset();
+
+            loadEntradas(1);
+        }
+
+        function clearInput(inputId) {
+            document.getElementById(inputId).value = '';
+        }
+
+
+        async function loadCreateEntradaForm() {
+            try {
+                const response = await fetch('/api/entradas/create');
+                const html = await response.text();
+                document.getElementById('entradas-container').innerHTML = html;
+                loadProducts();
+            } catch (error) {
+                console.error('Error loading create form:', error);
+                alert('Error al cargar el formulario de creación: ' + error.message);
+            }
+        }
+
+        // Actualizar los enlaces de paginación
+        function updatePaginationLinks() {
+            document.querySelectorAll('.pagination .page-link').forEach(link => {
+                link.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    const page = this.getAttribute('data-page');
+                    if (page) {
+                        loadEntradas(parseInt(page));
+                    }
+                });
+            });
+        }
+
+
+        /* otros metodos*/
+
+        /*  async function loadProducts() {
+              try {
+                  const response = await fetch('/api/products/list'); // Asegúrate de que esta ruta devuelva la lista de productos
+                  const products = await response.json();
+                  const autocompleteData = products.map(product => ({
+                      label: product.name,
+                      value: product._id,
+                      cost: product.cost, // Puedes agregar más datos si es necesario
+                      price: product.price
+                  }));
+  
+                  $("#productSearch").autocomplete({
+                      source: autocompleteData,
+                      minLength: 2,
+                      select: function (event, ui) {
+                          event.preventDefault();
+                          $(this).val(ui.item.label);
+                          $("#id_producto").val(ui.item.value);
+                          $("#precio_unitario").val(ui.item.cost); // Cargar el precio unitario al seleccionar el producto
+                          $("#precio_venta").val(ui.item.price); // Cargar el precio unitario al seleccionar el producto
+                      }
+                  }).autocomplete("instance")._renderItem = function (ul, item) {
+                      return $("<li>")
+                          .append(`<div>${item.label}</div>`)
+                          .appendTo(ul);
+                  };
+              } catch (error) {
+                  console.error('Error loading products:', error);
+              }
+          }*/
+
+
+        async function loadProducts() {
+
+            // Configurar el autocompletado para buscar en el servidor
+            $("#productSearch").autocomplete({
+                source: async function (request, response) {
+                    try {
+                        const searchQuery = request.term; // Obtener el término de búsqueda
+                        const res = await fetch(`/api/products/list?search=${encodeURIComponent(searchQuery)}`);
+                        const products = await res.json();
+                        const autocompleteData = products.map(product => ({
+                            label: product.name,
+                            value: product._id,
+                            codigo: product.code,
+                            price: product.price,
+                            cost: product.cost,
+                            precio_bolivares: product.precio_bolivares
+                        }));
+                        response(autocompleteData); // Pasar los datos al autocompletado
+                    } catch (error) {
+                        console.error('Error loading products:', error);
+                        response([]); // En caso de error, devolver un array vacío
+                    }
+                },
+                minLength: 2,
+                select: function (event, ui) {
+                    event.preventDefault();
+                    $(this).val(ui.item.label);
+                    $("#id_producto").val(ui.item.value);
+                    $("#precio_unitario").val(ui.item.cost); // Cargar el precio unitario al seleccionar el producto
+                    $("#precio_venta").val(ui.item.price); // Cargar el precio unitario al seleccionar el producto
+
+
+                    // addProductToTable(ui.item); // Agregar el producto a la tabla
+                }
+            }).autocomplete("instance")._renderItem = function (ul, item) {
+                return $("<li>")
+                    .append(`<div style="text-align: left; font-weight: bold;">${item.codigo} - ${item.label} - bs.${item.precio_bolivares}</div>`)
+                    .appendTo(ul);
+            };
+
+        }
+        async function handleSubmit(event) {
+            event.preventDefault();
+            try {
+
+                const confirmed = await ajaxHandler.showConfirm(
+                    'Guardar entrada?',
+                    '¿Estás seguro de que deseas registrar esta entrada?'
+                );
+
+                if (!confirmed) return;
+
+                ajaxHandler.showLoading('Guardando entrada de productos...');
+
+
+                const formData = new FormData(event.target);
+                const data = Object.fromEntries(formData.entries());
+
+                const response = await fetch('/api/entradas/create', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                });
+                // const txt = await response.text();
+                // console.log(txt);
+                const result = await response.json();
+                if (response.ok) {
+                 
+
+                    ajaxHandler.showSuccess('Entrada guardada correctamente');
+                    loadEntradas();
+                } else {
+                    console.log(JSON.stringify(result));
+                    ajaxHandler.showError('Error: ' + (result.error || result.message || 'No se pudo registrar la entrada'));
+                    return;
+
+                }
+            } catch (error) {
+                console.error('Error creating entrada:', error);
+                ajaxHandler.showError('Error al crear la entrada: ' + error.message);
+            }
+        }
+
+        async function handleUpdate(event, id) {
+            event.preventDefault();
+            try {
+                const confirmed = await ajaxHandler.showConfirm(
+                    'Actualizar entrada?',
+                    '¿Estás seguro de que deseas actualizar esta entrada?'
+                );
+
+                if (!confirmed) return;
+
+                ajaxHandler.showLoading('Actualizando entrada...');
+
+                const formData = new FormData(event.target);
+                const data = Object.fromEntries(formData.entries());
+
+                const response = await fetch(`/api/entradas/edit/${id}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                });
+
+                if (response.ok) {
+                    const result = await response.json();
+                    ajaxHandler.showSuccess('Entrada actualizada correctamente');
+                    loadEntradas(); // Recargar la lista de entradas
+                } else {
+                    const result = await response.json();
+                    ajaxHandler.showError('Error: ' + (result.error || 'No se pudo actualizar la entrada'));
+                    return;
+
+                }
+            } catch (error) {
+                console.error('Error updating entrada:', error);
+                ajaxHandler.showError('Error al actualizar: ' + error.message);
+            }
+        }
+        async function verEntrada(id) {
+            try {
+                const response = await fetch(`/api/entradas/show/${id}`);
+                const html = await response.text();
+                document.getElementById('entradas-container').innerHTML = html;
+            } catch (error) {
+                console.error('Error loading entry details:', error);
+                alert('Error al cargar los detalles de la entrada: ' + error.message);
+            }
+        }
+        async function editarEntrada(id) {
+            try {
+                const response = await fetch(`/api/entradas/edit/${id}`);
+                const html = await response.text();
+                document.getElementById('entradas-container').innerHTML = html;
+            } catch (error) {
+                console.error('Error loading edit form:', error);
+                alert('Error al cargar formulario de edición: ' + error.message);
+            }
+        }
+        async function confirmarEntrada(id) {
+            try {
+                const confirmed = await ajaxHandler.showConfirm(
+                    '¿Confirmar entrada?',
+                    '¿Estás seguro de que deseas confirmar esta entrada?'
+                );
+
+                if (!confirmed) return;
+
+                ajaxHandler.showLoading('Confirmando entrada...');
+
+                const response = await fetch(`/api/entradas/confirmar/${id}`, {
+                    method: 'PUT'  // Asumiendo que el método para confirmar es PUT
+                });
+
+                if (!response.ok) {
+                    const result = await response.json();
+                    ajaxHandler.showError('Error: ' + (result.error || 'No se pudo confirmar la entrada'));
+                    return;
+                }
+
+                ajaxHandler.showSuccess('Entrada confirmada correctamente');
+                await loadEntradas(); // Recargar lista
+
+            } catch (error) {
+                ajaxHandler.showError('Error al confirmar la entrada: ' + error.message);
+            }
+        }
+        async function eliminarEntrada(id) {
+            try {
+                const confirmed = await ajaxHandler.showConfirm(
+                    '¿Eliminar entrada?',
+                    '¿Estás seguro de que deseas eliminar esta entrada? Esta acción no se puede deshacer.'
+                );
+
+                if (!confirmed) return;
+
+                ajaxHandler.showLoading('Eliminando entrada...');
+
+                const response = await fetch(`/api/entradas/delete/${id}`, {
+                    method: 'DELETE'
+                });
+
+                if (!response.ok) {
+                    const result = await response.json();
+                    ajaxHandler.showError('Error: ' + (result.error || 'No se pudo eliminar la entrada'));
+                    return;
+                }
+
+                ajaxHandler.showSuccess('Entrada eliminada correctamente');
+                await loadEntradas(); // Recargar lista
+
+            } catch (error) {
+                ajaxHandler.showError('Error al eliminar la entrada: ' + error.message);
+            }
+        }
+        async function confirmarEntradasPendientes() {
+            try {
+                const confirmed = await ajaxHandler.showConfirm(
+                    '¿Confirmar todas las entradas pendientes?',
+                    '¿Estás seguro de que deseas confirmar todas las entradas en estado PENDIENTE?'
+                );
+
+                if (!confirmed) return;
+
+                ajaxHandler.showLoading('Confirmando entradas pendientes...');
+
+                const response = await fetch('/api/entradas/confirmartodas', {
+                    method: 'PUT'  // Asumiendo que el método para confirmar todas las entradas es PUT
+                });
+
+                const result = await response.json(); // Asegúrate de obtener el JSON de la respuesta
+
+                if (!response.ok) {
+                    // Si la respuesta no es ok, verifica el error y el mensaje
+                    ajaxHandler.showError('Error: ' + (result.error || result.message || 'No se pudo confirmar todas las entradas'));
+                } else {
+                    ajaxHandler.showSuccess('Entradas confirmadas correctamente');
+                    await loadEntradas(); // Recargar lista
+                }
+
+            } catch (error) {
+                ajaxHandler.showError('Error al confirmar las entradas: ' + error.message);
+            }
+        }
+
+        async function exportarEntradasPorFecha() {
+            try {
+                // Obtener la fecha del usuario (puedes usar un input de tipo date)
+                const fecha = await ajaxHandler.mostrarDialogoFecha(); // Asegúrate de tener un input con este ID
+
+                if (!fecha) {
+                    alert('Por favor, selecciona una fecha.');
+                    return;
+                }
+                const confirmed = await ajaxHandler.showConfirm(
+                    '¿Exportar entradas?',
+                    '¿Estás seguro de que deseas exportar las entradas de la fecha seleccionada?'
+                );
+
+                if (!confirmed) return;
+
+                ajaxHandler.showLoading('Generando archivo Excel...');
+
+                // Solicitar las entradas desde el servidor
+                const response = await fetch(`/api/entradas/obtenerentradasporfecha/?fecha=${encodeURIComponent(fecha)}`, {
+                    method: 'GET'
+                });
+
+                const entradas = await response.json();
+
+                if (!response.ok) {
+                    ajaxHandler.showError('Error: ' + (entradas.error || entradas.message || 'No se pudo obtener las entradas'));
+                    return;
+                }
+
+                // Crear un nuevo libro de trabajo
+                const workbook = new ExcelJS.Workbook();
+                const worksheet = workbook.addWorksheet('Entradas');
+
+                // Definir los encabezados
+                const headers = [
+                    { header: 'Fecha', key: 'Fecha' },
+                    { header: 'Código', key: 'Código' },
+                    { header: 'Descripción', key: 'Descripción' },
+                    { header: 'Precio Venta', key: 'Precio Venta' },
+                    { header: 'Cantidad', key: 'Cantidad' },
+                    { header: 'Total $', key: 'Total' },
+                    { header: 'Precio Dólar', key: 'Precio Dólar' },
+                    { header: 'Total BS', key: 'Total BS' }
+                ];
+
+                worksheet.columns = headers.map(header => ({ ...header, width: header.header.length + 2 })); // Establecer un ancho inicial
+
+                // Aplicar estilos a los encabezados
+                worksheet.getRow(1).font = { bold: true };
+                worksheet.getRow(1).fill = {
+                    type: 'pattern',
+                    pattern: 'solid',
+                    fgColor: { argb: 'FFFF00' } // Color de fondo amarillo
+                };
+
+                // Agregar los datos y ajustar el ancho de las columnas
+                entradas.forEach(entrada => {
+                    const row = {
+                        'Fecha': entrada.Fecha,
+                        'Código': entrada.Código,
+                        'Descripción': entrada.Descripción,
+                        'Precio Venta': entrada['Precio Venta'],
+                        'Cantidad': entrada.Cantidad,
+                        'Total': entrada.Total,
+                        'Precio Dólar': entrada['Precio Dólar'],
+                        'Total BS': entrada['Total BS']
+                    };
+                    worksheet.addRow(row);
+
+                    // Ajustar el ancho de las columnas
+                    headers.forEach(header => {
+                        const cellValue = row[header.key];
+                        const cellLength = cellValue ? cellValue.toString().length : 0;
+                        if (cellLength + 2 > worksheet.getColumn(header.key).width) {
+                            worksheet.getColumn(header.key).width = cellLength + 2; // Ajustar el ancho
+                        }
+                    });
+                });
+
+                // Calcular y agregar la fila de totales
+                const totalRow = worksheet.addRow({
+                    'Fecha': 'Total',
+                    'Código': '',
+                    'Descripción': '',
+                    'Precio Venta': '',
+                    'Cantidad': '',
+                    'Total': entradas.reduce((sum, entrada) => sum + entrada.Total, 0),
+                    'Precio Dólar': '',
+                    'Total BS': entradas.reduce((sum, entrada) => sum + entrada['Total BS'], 0)
+                });
+
+                // Aplicar estilos a la fila de totales
+                totalRow.font = { bold: true };
+                totalRow.fill = {
+                    type: 'pattern',
+                    pattern: 'solid',
+                    fgColor: { argb: 'FFCCCC' } // Color de fondo para la fila de totales
+                };
+
+                // Descargar el archivo Excel
+                const buffer = await workbook.xlsx.writeBuffer();
+                const blob = new Blob([buffer], { type: 'application/octet-stream' });
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `entradas_${fecha}.xlsx`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(url);
+
+                ajaxHandler.showSuccess('Archivo Excel generado correctamente');
+
+            } catch (error) {
+                ajaxHandler.showError('Error al exportar las entradas: ' + error.message);
+            }
+        }
+
+        function clickResponsive() {
+
+            document.querySelectorAll('.toggle-details').forEach(button => {
+                button.addEventListener('click', function () {
+                    const entradaId = this.getAttribute('data-entrada-id');
+                    const detailRow = document.getElementById(`details-${entradaId}`);
+                    const icon = this.querySelector('i');
+
+                    // Toggle clase show
+                    detailRow.classList.toggle('show');
+
+                    // Cambiar icono
+                    icon.classList.toggle('fa-plus-circle');
+                    icon.classList.toggle('fa-minus-circle');
+                });
+            });
+
+
+        }
+
+        document.addEventListener('DOMContentLoaded', loadEntradas);
+
+
+    </script>
+</body>
+
+</html>

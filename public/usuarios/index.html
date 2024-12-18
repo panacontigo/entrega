@@ -37,139 +37,55 @@
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
+    <script src="/js/handlersAjax.js"></script>
     <script>
-        async function loadUsers(page = 1) {
-            try {
-                const response = await fetch(`/api/users/index?page=${page}&limit=10`);
-                const html = await response.text();
-                document.getElementById('users-container').innerHTML = html;
-            } catch (error) {
-                console.error('Error loading users:', error);
-            }
+        // Inicializar el manejador
+        const ajaxHandler = new AjaxHandler('users-container');
+
+        // Funciones específicas para usuarios
+        function loadUsers(page = 1) {
+            ajaxHandler.loadList('/api/users/index', page);
         }
 
-        async function loadCreateForm() {
-            try {
-                const response = await fetch('/api/users/create');
-                const html = await response.text();
-                document.getElementById('users-container').innerHTML = html;
-            } catch (error) {
-                console.error('Error loading form:', error);
-            }
+        function loadCreateForm() {
+            ajaxHandler.loadForm('/api/users/create');
         }
 
         async function handleSubmit(event) {
-            event.preventDefault();
-            
             try {
-                const formData = new FormData(event.target);
-                const data = Object.fromEntries(formData.entries());
-                
-                const response = await fetch('/api/users/create', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(data)
-                });
-
-                if (response.ok) {
-                    const result = await response.json();
-                    alert(result.message);
-                    loadUsers();
-                } else {
-                    const error = await response.json();
-                    throw new Error(error.message);
-                }
+                await ajaxHandler.handleSubmit(event, '/api/users/create');
+                loadUsers();
             } catch (error) {
-                console.error('Error creating user:', error);
-                alert('Error al crear usuario: ' + error.message);
+                // El error ya fue manejado por ajaxHandler
             }
         }
 
-        async function verUsuario(id) {
-            try {
-                const response = await fetch(`/api/users/${id}`);
-                const user = await response.json();
-                alert(JSON.stringify(user, null, 2));
-            } catch (error) {
-                console.error('Error al ver usuario:', error);
-            }
+        function verUsuario(id) {
+            ajaxHandler.viewDetails(`/api/users/${id}`);
         }
 
         async function editarUsuario(id) {
-            try {
-                console.log('Editando usuario:', id); // Para debugging
-                const response = await fetch(`/api/users/edit/${id}`);
-                
-                if (response.ok) {
-                    const html = await response.text();
-                    document.getElementById('users-container').innerHTML = html;
-                } else {
-                    const error = await response.json();
-                    throw new Error(error.message);
-                }
-            } catch (error) {
-                console.error('Error al cargar formulario de edición:', error);
-                alert('Error al cargar formulario de edición: ' + error.message);
-            }
+            ajaxHandler.loadForm(`/api/users/edit/${id}`);
         }
 
         async function handleUpdate(event, id) {
-            event.preventDefault();
-            
             try {
-                const formData = new FormData(event.target);
-                const data = Object.fromEntries(formData.entries());
-                
-                const response = await fetch(`/api/users/edit/${id}`, {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(data)
-                });
-
-                if (response.ok) {
-                    const result = await response.json();
-                    alert(result.message);
-                    loadUsers();
-                } else {
-                    const error = await response.json();
-                    throw new Error(error.message);
-                }
+                await ajaxHandler.handleSubmit(event, `/api/users/edit/${id}`, 'PUT');
+                loadUsers();
             } catch (error) {
-                console.error('Error updating user:', error);
-                alert('Error al actualizar usuario: ' + error.message);
+                // El error ya fue manejado por ajaxHandler
             }
         }
 
-        async function eliminarUsuario(id) {
-            if (confirm('¿Estás seguro de que deseas eliminar este usuario?')) {
-                try {
-                    const response = await fetch(`/api/users/${id}`, {
-                        method: 'DELETE',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        }
-                    });
-                    
-                    if (response.ok) {
-                        const result = await response.json();
-                        alert(result.message);
-                        loadUsers();
-                    } else {
-                        const error = await response.json();
-                        throw new Error(error.message);
-                    }
-                } catch (error) {
-                    console.error('Error al eliminar usuario:', error);
-                    alert('Error al eliminar usuario: ' + error.message);
-                }
-            }
+        function eliminarUsuario(id) {
+            ajaxHandler.deleteItem(`/api/users/${id}`, '¿Estás seguro de que deseas eliminar este usuario?')
+                .then(() => loadUsers())
+                .catch(() => {}); // Los errores ya fueron manejados por ajaxHandler
         }
 
         document.addEventListener('DOMContentLoaded', loadUsers);
     </script>
 </body>
+</html>
+
 </html>

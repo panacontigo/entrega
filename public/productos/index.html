@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestión de Productos</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/@sweetalert2/theme-bootstrap-4/bootstrap-4.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <style>
+        .menu {
+            margin-top: 50px;
+            margin-bottom: 30px;
+        }
+
+        .ui-autocomplete {
+            max-height: 300px;
+            overflow-y: auto;
+            overflow-x: hidden;
+            z-index: 9999;
+        }
+
+        .ui-autocomplete .ui-menu-item {
+            padding: 5px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .ui-autocomplete .ui-menu-item:hover {
+            background-color: #f8f9fa;
+            cursor: pointer;
+        }
+
+        .ui-autocomplete .ui-menu-item div {
+            padding: 5px;
+        }
+
+        .ui-autocomplete .text-muted {
+            color: #6c757d;
+            font-size: 0.875em;
+        }
+    </style>
+
+    <!-- Agregar estos enlaces en el head -->
+    <link rel="stylesheet" href="https://code.jquery.com/ui/1.13.2/themes/base/jquery-ui.css">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://code.jquery.com/ui/1.13.2/jquery-ui.min.js"></script>
+
+
+</head>
+
+<body>
+    <div class="container">
+        <div class="menu">
+            <nav class="navbar navbar-expand-lg navbar-light bg-light">
+                <div class="container-fluid">
+                    <div class="navbar-nav mx-auto">
+                        <a class="nav-link mx-3" href="#" onclick="loadProducts(); return false;">
+                            <i class="fas fa-list"></i> Lista de Productos
+                        </a>
+                        <a class="nav-link mx-3" href="#" onclick="loadCreateForm(); return false;">
+                            <i class="fas fa-plus"></i> Crear Producto
+                        </a>
+                        <a class="nav-link mx-3" href="#" onclick="importProducts(); return false;">
+                            <i class="fas fa-plus"></i> Importar productos
+                        </a>
+                    </div>
+                </div>
+            </nav>
+        </div>
+        <div id="products-container" class="table-responsive"></div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/js/handlersAjax.js"></script>
+    <script>
+
+        const ajaxHandler = new AjaxHandler('products-container');
+
+
+        async function importProducts() {
+        try {
+
+            const confirmed = await ajaxHandler.showConfirm(
+                    'Importar producto?',
+                    '¿Estás seguro de que deseas importar los producto?'
+                );
+
+                if (!confirmed) return;
+
+                ajaxHandler.showLoading('Importando producto...');
+
+            const response = await fetch('/api/products/import', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            const result = await response.json();
+
+            if (response.ok) {
+               // document.getElementById('importMessage').innerText = result.message;
+
+                ajaxHandler.showSuccess('Archivo importado correctamente');
+            } else {
+                ajaxHandler.showError('Error: ' + (result.error || 'No se pudo importar los productos.'));
+            }
+        } catch (error) {
+            console.error('Error al importar productos:', error);
+            ajaxHandler.showSuccess('Error al importar productos: ' + error.message);
+        }
+    }
+
+
+
+        async function loadProducts(page = 1, filters = {}) {
+            try {
+                // Asegurarnos de que page sea un número
+                page = parseInt(page) || 1;
+
+                // Construir query string con los filtros y paginación
+                const queryParams = new URLSearchParams();
+
+                // Agregar página y límite
+                queryParams.append('page', page);
+                queryParams.append('limit', 20);
+
+                // Agregar filtros solo si tienen valor
+                if (filters.name) queryParams.append('name', filters.name);
+                if (filters.category) queryParams.append('category', filters.category);
+                if (filters.minPrice) queryParams.append('minPrice', filters.minPrice);
+                if (filters.maxPrice) queryParams.append('maxPrice', filters.maxPrice);
+                if (filters.stock) queryParams.append('stock', filters.stock);
+                if (filters.sortBy) queryParams.append('sortBy', filters.sortBy);
+                if (filters.sortOrder) queryParams.append('sortOrder', filters.sortOrder);
+
+                console.log('Query params:', queryParams.toString()); // Debug
+
+                const response = await fetch(`/api/products/index?${queryParams.toString()}`);
+                const html = await response.text();
+                document.getElementById('products-container').innerHTML = html;
+
+                // Si hay filtros activos, volver a cargar el autocomplete de categorías
+                if (document.getElementById('filterCategorySearch')) {
+                    loadFilterCategories();
+                }
+
+
+                updatePaginationLinks();
+                toggleFilters();
+                toggleDebug();
+            } catch (error) {
+                console.error('Error loading products:', error);
+                alert('Error al cargar los productos: ' + error.message);
+            }
+        }
+
+        function applyFilters(event) {
+            event.preventDefault(); // Prevenir el envío del formulario
+
+            const filters = {
+                name: document.getElementById('filterName')?.value?.trim() || '',
+                category: document.getElementById('filterCategory')?.value?.trim() || '',
+                minPrice: document.getElementById('filterMinPrice')?.value || '',
+                maxPrice: document.getElementById('filterMaxPrice')?.value || '',
+                stock: document.getElementById('filterStock')?.checked || false,
+                sortBy: document.getElementById('sortBy')?.value || 'createdAt',
+                sortOrder: document.getElementById('sortOrder')?.value || 'desc'
+            };
+
+            // Eliminar filtros vacíos
+            Object.keys(filters).forEach(key => {
+                if (filters[key] === '' || filters[key] === null || filters[key] === undefined) {
+                    delete filters[key];
+                }
+            });
+
+            // Llamar a loadProducts con la página 1 y los filtros
+            loadProducts(1, filters);
+        }
+
+        // Actualizar los enlaces de paginación
+        function updatePaginationLinks() {
+            document.querySelectorAll('.pagination .page-link').forEach(link => {
+                link.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    const page = this.getAttribute('data-page');
+                    if (page) {
+                        // Obtener los filtros actuales
+                        const filters = {
+                            name: document.getElementById('filterName')?.value?.trim(),
+                            category: document.getElementById('filterCategory')?.value?.trim(),
+                            minPrice: document.getElementById('filterMinPrice')?.value,
+                            maxPrice: document.getElementById('filterMaxPrice')?.value,
+                            stock: document.getElementById('filterStock')?.checked,
+                            sortBy: document.getElementById('sortBy')?.value,
+                            sortOrder: document.getElementById('sortOrder')?.value
+                        };
+                        loadProducts(parseInt(page), filters);
+                    }
+                });
+            });
+        }
+
+        function toggleFilters() {
+            const filterSection = document.getElementById('filterSection');
+            const filterIcon = document.getElementById('filterIcon');
+            filterSection.classList.toggle('d-none');
+            filterIcon.classList.toggle('fa-chevron-down');
+            filterIcon.classList.toggle('fa-chevron-up');
+        }
+        function toggleDebug() {
+            const debugSection = document.getElementById('debugSection');
+            debugSection.style.display = debugSection.style.display === 'none' ? 'block' : 'none';
+        }
+        function clearFilters() {
+            document.getElementById('filterForm').reset();
+            clearCategory();
+            loadProducts(1);
+        }
+
+        function clearInput(inputId) {
+            document.getElementById(inputId).value = '';
+        }
+
+        function clearCategory() {
+            document.getElementById('filterCategorySearch').value = '';
+            document.getElementById('filterCategory').value = '';
+            document.getElementById('filterMainCategory').textContent = '-';
+        }
+
+        function clearPriceRange() {
+            document.getElementById('filterMinPrice').value = '';
+            document.getElementById('filterMaxPrice').value = '';
+        }
+
+
+        // Función auxiliar para actualizar los valores del formulario de filtros
+        function updateFilterFormValues(filters) {
+            if (!filters) return;
+
+            // Actualizar campos de texto y select
+            const fields = {
+                'filterName': filters.name,
+                'filterMinPrice': filters.minPrice,
+                'filterMaxPrice': filters.maxPrice,
+                'sortBy': filters.sortBy,
+                'sortOrder': filters.sortOrder
+            };
+
+            for (const [id, value] of Object.entries(fields)) {
+                const element = document.getElementById(id);
+                if (element && value !== undefined) {
+                    element.value = value;
+                }
+            }
+
+            // Actualizar checkbox
+            const stockCheckbox = document.getElementById('filterStock');
+            if (stockCheckbox) {
+                stockCheckbox.checked = filters.stock === 'true' || filters.stock === true;
+            }
+
+            // Actualizar categoría si existe
+            if (filters.category) {
+                const categoryInput = document.getElementById('filterCategory');
+                if (categoryInput) {
+                    categoryInput.value = filters.category;
+                    // La etiqueta se actualizará cuando se cargue el autocomplete
+                }
+            }
+        }
+
+
+
+        // Función para cargar las categorías en el filtro
+        async function loadFilterCategories() {
+            try {
+                const response = await fetch('/api/categories/list');
+                const categories = await response.json();
+                const autocompleteData = categories.map(cat => ({
+                    label: cat.sub,
+                    value: cat.value,
+                    mainCategory: cat.main
+                }));
+
+                $("#filterCategorySearch").autocomplete({
+                    source: function (request, response) {
+                        const term = request.term.toLowerCase();
+                        const matches = autocompleteData.filter(item =>
+                            item.label.toLowerCase().includes(term) ||
+                            item.mainCategory.toLowerCase().includes(term)
+                        );
+                        response(matches);
+                    },
+                    minLength: 2,
+                    select: function (event, ui) {
+                        event.preventDefault();
+                        $(this).val(ui.item.label);
+                        $("#filterCategory").val(ui.item.value);
+                        $("#filterMainCategory").text(ui.item.mainCategory);
+                    }
+                }).autocomplete("instance")._renderItem = function (ul, item) {
+                    return $("<li>")
+                        .append(`<div>
+                            <strong>${item.label}</strong><br>
+                            <small class="text-muted">${item.mainCategory}</small>
+                        </div>`)
+                        .appendTo(ul);
+                };
+            } catch (error) {
+                console.error('Error loading filter categories:', error);
+            }
+        }
+
+        function initializeMarginCalculator() {
+
+            const costInput = document.getElementById('cost');
+            const priceInput = document.getElementById('price');
+            const profitSpan = document.getElementById('profit');
+            const profitPercentageSpan = document.getElementById('profitPercentage');
+
+            if (costInput && priceInput) {
+                function calculateProfit() {
+                    const cost = parseFloat(costInput.value) || 0;
+                    const price = parseFloat(priceInput.value) || 0;
+                    const profit = price - cost;
+                    const profitPercentage = cost === 0 ? 0 : ((profit / cost) * 100);
+
+                    profitSpan.textContent = profit.toFixed(2);
+                    profitPercentageSpan.textContent = profitPercentage.toFixed(2) + '%';
+
+                    // Cambiar color según el margen
+                    profitSpan.parentElement.classList.remove('text-success', 'text-danger');
+                    profitSpan.parentElement.classList.add(profit >= 0 ? 'text-success' : 'text-danger');
+                }
+
+                costInput.addEventListener('input', calculateProfit);
+                priceInput.addEventListener('input', calculateProfit);
+            }
+
+        }
+
+        async function loadCreateForm() {
+            try {
+                const response = await fetch('/api/products/create');
+                const html = await response.text();
+                document.getElementById('products-container').innerHTML = html;
+                loadCategories();
+                initializeMarginCalculator();
+            } catch (error) {
+                console.error('Error loading form:', error);
+            }
+        }
+
+        async function handleSubmit(event) {
+            event.preventDefault();
+            try {
+
+                const confirmed = await ajaxHandler.showConfirm(
+                    'Guardar producto?',
+                    '¿Estás seguro de que deseas guardar este producto?'
+                );
+
+                if (!confirmed) return;
+
+                ajaxHandler.showLoading('Guardando producto...');
+
+
+                const formData = new FormData(event.target);
+                const data = Object.fromEntries(formData.entries());
+
+                const response = await fetch('/api/products/create', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                });
+
+                if (response.ok) {
+                    const result = await response.json();
+
+                    ajaxHandler.showSuccess('Producto guardado correctamente');
+                    loadProducts();
+                } else {
+                    const error = await response.json();
+                    ajaxHandler.showError('Error al crear el producto: ' + (error.error || error.message));
+                }
+            } catch (error) {
+                console.error('Error creating product:', error);
+                ajaxHandler.showError('Error al crear el producto: ' + error.message);
+            }
+        }
+
+        // Actualizar función ver producto
+        async function verProducto(id) {
+            try {
+                ajaxHandler.showLoading('Cargando detalles...');
+
+                const response = await fetch(`/api/products/show/${id}`);
+                if (!response.ok) throw new Error('Error al cargar los detalles');
+
+                const product = await response.json();
+
+                Swal.fire({
+                    title: product.name,
+                    html: `
+                <div class="text-start">
+                    <p><strong>Categoría:</strong> ${product.category}</p>
+                    <p><strong>Precio Bolivares:</strong> $${product.precio_bolivares}</p>
+                    <p><strong>Stock:</strong> ${product.stock}</p>
+                    <p><strong>Descripción:</strong> ${product.description}</p>
+                </div>
+                ${product.image ? `
+                    <div class="mt-3">
+                        <img src="${product.image}" 
+                             alt="${product.name}"
+                             style="max-width: 200px; max-height: 200px; object-fit: contain">
+                    </div>
+                ` : ''}
+            `,
+                    confirmButtonText: 'Cerrar',
+                    width: '600px'
+                });
+
+            } catch (error) {
+                ajaxHandler.showError('Error al cargar los detalles: ' + error.message);
+            }
+        }
+
+        async function editarProducto(id) {
+            try {
+                const response = await fetch(`/api/products/edit/${id}`);
+                const html = await response.text();
+                document.getElementById('products-container').innerHTML = html;
+                loadCategories();
+            } catch (error) {
+                console.error('Error loading edit form:', error);
+                alert('Error al cargar formulario de edición: ' + error.message);
+            }
+        }
+
+        async function handleUpdate(event, id) {
+            event.preventDefault();
+            try {
+
+                const confirmed = await ajaxHandler.showConfirm(
+                    'Actualizar producto?',
+                    '¿Estás seguro de que deseas actualizar este producto?'
+                );
+
+                if (!confirmed) return;
+
+                ajaxHandler.showLoading('Actualizando producto...');
+
+
+
+                const formData = new FormData(event.target);
+                const data = Object.fromEntries(formData.entries());
+
+                const response = await fetch(`/api/products/edit/${id}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                });
+
+                //const txt = await response.text();
+               // console.log(txt);
+
+
+                if (response.ok) {
+                    console.log("todo bien");
+                    const result = await response.json();
+                    ajaxHandler.showSuccess('Producto actualizado correctamente');
+                    loadProducts();
+                } else {
+                    console.log("todo mal");
+                    const error = await response.json();
+                    ajaxHandler.showError('Error al actualizar el producto: ' + (error.error || error.message));
+                }
+            } catch (error) {
+                console.error('Error updating product:', error);
+                ajaxHandler.showError('Error al actualizar: ' + error.message);
+            }
+        }
+
+        async function eliminarProducto(id) {
+            try {
+                const confirmed = await ajaxHandler.showConfirm(
+                    '¿Eliminar producto?',
+                    '¿Estás seguro de que deseas eliminar este producto? Esta acción no se puede deshacer.'
+                );
+
+                if (!confirmed) return;
+
+                ajaxHandler.showLoading('Eliminando producto...');
+
+                const response = await fetch(`/api/products/delete/${id}`, {
+                    method: 'DELETE'
+                });
+
+                if (!response.ok) {
+                    throw new Error('Error al eliminar el producto');
+                }
+
+                ajaxHandler.showSuccess('Producto eliminado correctamente');
+                await loadProducts(); // Recargar lista
+
+            } catch (error) {
+                ajaxHandler.showError('Error al eliminar el producto: ' + error.message);
+            }
+        }
+
+        function handleImageUpload(input) {
+            const file = input.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function (e) {
+                    document.getElementById('imageBase64').value = e.target.result;
+
+                    // Mostrar vista previa
+                    const preview = document.getElementById('imagePreview');
+                    preview.innerHTML = `
+                        <img src="${e.target.result}" 
+                             style="max-width: 200px; max-height: 200px; object-fit: contain"
+                             class="img-thumbnail">
+                    `;
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+
+
+        async function loadCategories() {
+            try {
+                const response = await fetch('/api/categories/list');
+                const categories = await response.json();
+
+
+                console.log(categories);
+                const autocompleteData = categories.map(cat => ({
+                    label: cat.sub,
+                    value: cat.value,
+                    mainCategory: cat.main
+                }));
+
+                // Obtener el valor actual de la categoría si estamos en modo edición
+                const currentCategory = $("#category").val();
+                if (currentCategory) {
+                    const currentCategoryData = autocompleteData.find(cat => cat.value === currentCategory);
+                    if (currentCategoryData) {
+                        $("#categorySearch").val(currentCategoryData.label);
+                        $("#mainCategory").text(currentCategoryData.mainCategory);
+                    }
+                }
+
+                // Corregir la inicialización del autocomplete
+                $("#categorySearch").autocomplete({
+                    source: function (request, response) {
+                        const term = request.term.toLowerCase();
+                        const matches = autocompleteData.filter(item =>
+                            item.label.toLowerCase().includes(term) ||
+                            item.mainCategory.toLowerCase().includes(term)
+                        );
+                        response(matches);
+                    },
+                    minLength: 2,
+                    select: function (event, ui) {
+                        event.preventDefault();
+                        $(this).val(ui.item.label);
+                        $("#category").val(ui.item.value);
+                        $("#mainCategory").text(ui.item.mainCategory);
+                    }
+                });
+
+                // Establecer el renderizador de elementos después de inicializar el autocomplete
+                const autocompleteInstance = $("#categorySearch").autocomplete("instance");
+                if (autocompleteInstance) {
+                    autocompleteInstance._renderItem = function (ul, item) {
+                        return $("<li>")
+                            .append(`<div>
+                                <strong>${item.label}</strong><br>
+                                <small class="text-muted">${item.mainCategory}</small>
+                            </div>`)
+                            .appendTo(ul);
+                    };
+                }
+
+            } catch (error) {
+                console.error('Error loading categories:', error);
+            }
+        }
+
+
+        function clickResponsive() {
+
+            document.querySelectorAll('.toggle-details').forEach(button => {
+                button.addEventListener('click', function () {
+                    const entradaId = this.getAttribute('data-entrada-id');
+                    const detailRow = document.getElementById(`details-${entradaId}`);
+                    const icon = this.querySelector('i');
+
+                    // Toggle clase show
+                    detailRow.classList.toggle('show');
+
+                    // Cambiar icono
+                    icon.classList.toggle('fa-plus-circle');
+                    icon.classList.toggle('fa-minus-circle');
+                });
+            });
+
+
+        }
+
+        document.addEventListener('DOMContentLoaded', loadProducts);
+
+    </script>
+</body>
+
+</html>

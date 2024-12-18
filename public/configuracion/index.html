@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestión de Productos</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/@sweetalert2/theme-bootstrap-4/bootstrap-4.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <style>
+        .menu {
+            margin-top: 50px;
+            margin-bottom: 30px;
+        }
+
+        .ui-autocomplete {
+            max-height: 300px;
+            overflow-y: auto;
+            overflow-x: hidden;
+            z-index: 9999;
+        }
+
+        .ui-autocomplete .ui-menu-item {
+            padding: 5px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .ui-autocomplete .ui-menu-item:hover {
+            background-color: #f8f9fa;
+            cursor: pointer;
+        }
+
+        .ui-autocomplete .ui-menu-item div {
+            padding: 5px;
+        }
+
+        .ui-autocomplete .text-muted {
+            color: #6c757d;
+            font-size: 0.875em;
+        }
+    </style>
+
+    <!-- Agregar estos enlaces en el head -->
+    <link rel="stylesheet" href="https://code.jquery.com/ui/1.13.2/themes/base/jquery-ui.css">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://code.jquery.com/ui/1.13.2/jquery-ui.min.js"></script>
+
+
+</head>
+
+<body>
+    <div class="container">
+        <div id="configuracion-container" class="table-responsive"></div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/js/handlersAjax.js"></script>
+    <script>
+
+        const ajaxHandler = new AjaxHandler('configuracion-container');
+        async function handleConfiguracionSubmit(event) {
+            event.preventDefault();
+            try {
+
+
+
+                const confirmed = await ajaxHandler.showConfirm(
+                    'Actualizar precio del Dolar?',
+                    '¿Estás segura de  actualizar el precio del dolar?'
+                );
+
+
+
+                if (!confirmed) return;
+
+                ajaxHandler.showLoading('Actualizados precio del dolar y productos...');
+
+                const formData = new FormData(event.target);
+                const data = Object.fromEntries(formData.entries());
+
+                const response = await fetch('/api/configuracion/update', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                });
+
+                if (response.ok) {
+                    const result = await response.json();
+
+                    ajaxHandler.showSuccess(result.message);
+                    // Opcional: recargar la configuración después de actualizar
+                    loadConfiguracion();
+                } else {
+                    const error = await response.json();
+                    ajaxHandler.showError('Error al actualizar los datos de configuracion: ' + (error.error || error.message));
+
+                }
+            } catch (error) {
+                console.error('Error al actualizar configuración:', error);
+                alert('Error: ' + error.message);
+            }
+        }
+
+        // Función para cargar la configuración al inicio
+        async function loadConfiguracion() {
+            try {
+                const response = await fetch('/api/configuracion/index');
+                const html = await response.text();
+                document.getElementById('configuracion-container').innerHTML = html;
+                // Aquí puedes manejar la configuración si es necesario
+            } catch (error) {
+                console.error('Error al cargar configuración:', error);
+            }
+        }
+
+        async function deleteAllProducts() {
+            try {
+                const confirmed = await ajaxHandler.showConfirm(
+                    'Eliminar producto?',
+                    '¿Estás seguro de que deseas eliminar productos?'
+                );
+
+                if (!confirmed) return;
+
+                ajaxHandler.showLoading('Guardando salida de productos...');
+
+                const response = await fetch('/api/configuracion/deleteAllProducts', {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if (response.ok) {
+                    // Crear un blob a partir de la respuesta
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.style.display = 'none';
+                    a.href = url;
+                    a.download = 'backup.json'; // Nombre del archivo a descargar
+                    document.body.appendChild(a);
+                    a.click(); // Simular clic para iniciar la descarga
+                    window.URL.revokeObjectURL(url); // Liberar el objeto URL
+
+                    ajaxHandler.showSuccess('Productos eliminados correctamente y respaldo descargado.');
+                } else {
+                    const error = await response.json();
+                    ajaxHandler.showError('Error al eliminar los productos: ' + (error.error || error.message));
+                }
+
+            } catch (error) {
+                console.error('Error eliminando productos:', error);
+                ajaxHandler.showError('Error al eliminar el producto: ' + error.message);
+            }
+        }
+
+        // Cargar la configuración al cargar la página
+        document.addEventListener('DOMContentLoaded', loadConfiguracion);
+    </script>
+</body>
+
+</html>
