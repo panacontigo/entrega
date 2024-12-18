@@ -1,0 +1,79 @@
+<div class="card">
+    <div class="card-header">
+        <h5 class="card-title mb-0">Crear Nueva Entrada</h5>
+    </div>
+    <div class="card-body">
+        <form id="createEntradaForm" onsubmit="handleSubmit(event)">
+            <!-- Selección de Producto -->
+            <div class="row mb-3">
+                <div class="col-md-12">
+                    <label for="productSearch" class="form-label">Producto</label>
+                    <input type="text" class="form-control" id="productSearch" placeholder="Buscar producto..." required>
+                    <input type="hidden" id="id_producto" name="id_producto" required>
+                </div>
+            </div>
+
+            <!-- Cantidad y Tipo de Entrada -->
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label for="cantidad" class="form-label">Cantidad</label>
+                    <input type="number" class="form-control" id="cantidad" name="cantidad" required min="1">
+                </div>
+                <div class="col-md-6">
+                    <label for="tipo_entrada" class="form-label">Tipo de Entrada</label>
+                    <select class="form-select" id="tipo_entrada" name="tipo_entrada" required>
+                        <option value="">Seleccionar tipo...</option>
+                        <option value="Compra">Compra</option>
+                        <option value="Devolución">Devolución</option>
+                        <option value="Transferencia">Transferencia</option>
+                        <option value="Ajuste de Inventario">Ajuste de Inventario</option>
+                        <option value="Producción">Producción</option>
+                        <option value="Otro">Otro</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Precios -->
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label for="precio_unitario" class="form-label">Precio Unitario</label>
+                    <div class="input-group">
+                        <span class="input-group-text">$</span>
+                        <input type="number" step="0.01" class="form-control" id="precio_unitario" name="precio_unitario" readonly>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <label for="precio_venta" class="form-label">Precio de Venta</label>
+                    <div class="input-group">
+                        <span class="input-group-text">$</span>
+                        <input type="number" step="0.01" class="form-control" id="precio_venta" name="precio_venta" readonly>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Proveedor y Observaciones -->
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label for="proveedor" class="form-label">Proveedor</label>
+                    <input type="text" class="form-control" id="proveedor" name="proveedor" value="Genérico">
+                </div>
+                <div class="col-md-6">
+                    <label for="observaciones" class="form-label">Observaciones</label>
+                    <textarea class="form-control" id="observaciones" name="observaciones"></textarea>
+                </div>
+            </div>
+
+            <!-- Botones -->
+            <div class="d-flex justify-content-between">
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-save"></i> Guardar
+                </button>
+                <button type="button" class="btn btn-secondary" onclick="loadEntradas()">
+                    <i class="fas fa-arrow-left"></i> Volver
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+ 

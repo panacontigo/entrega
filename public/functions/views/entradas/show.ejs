@@ -1,0 +1,69 @@
+<div class="card">
+    <div class="card-header">
+        <h5 class="card-title mb-0">Detalles de la Entrada</h5>
+    </div>
+    <div class="card-body">
+        <div class="row mb-3">
+            <div class="col-md-6">
+                <label for="id_entrada" class="form-label">ID Entrada</label>
+                <input type="text" class="form-control" id="id_entrada" value="<%= entrada.id_entrada %>" readonly>
+            </div>
+            <div class="col-md-6">
+                <label for="producto" class="form-label">Producto</label>
+                <input type="text" class="form-control" id="producto" value="<%= entrada.id_producto.name %> (Código: <%= entrada.id_producto.code %>)" readonly>
+            </div>
+        </div>
+
+        <div class="row mb-3">
+            <div class="col-md-6">
+                <label for="cantidad" class="form-label">Cantidad</label>
+                <input type="number" class="form-control" id="cantidad" value="<%= entrada.cantidad %>" readonly>
+            </div>
+            <div class="col-md-6">
+                <label for="tipo_entrada" class="form-label">Tipo de Entrada</label>
+                <input type="text" class="form-control" id="tipo_entrada" value="<%= entrada.tipo_entrada %>" readonly>
+            </div>
+        </div>
+
+        <div class="row mb-3">
+            <div class="col-md-6">
+                <label for="precio_unitario" class="form-label">Precio Unitario</label>
+                <div class="input-group">
+                    <span class="input-group-text">$</span>
+                    <input type="number" step="0.01" class="form-control" id="precio_unitario" value="<%= entrada.precio_unitario.toFixed(2) %>" readonly>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <label for="precio_dolar" class="form-label">Precio del Dólar</label>
+                <div class="input-group">
+                    <span class="input-group-text">$</span>
+                    <input type="number" step="0.01" class="form-control" id="precio_dolar" value="<%= entrada.precio_dolar.toFixed(2) %>" readonly>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mb-3">
+            <div class="col-md-6">
+                <label for="proveedor" class="form-label">Proveedor</label>
+                <input type="text" class="form-control" id="proveedor" value="<%= entrada.proveedor %>" readonly>
+            </div>
+            <div class="col-md-6">
+                <label for="fecha_registro" class="form-label">Fecha de Registro</label>
+                <input type="text" class="form-control" id="fecha_registro" value="<%= entrada.fecha_registro.toLocaleDateString('es-VE', { day: '2-digit', month: '2-digit', year: 'numeric' }) %>" readonly>
+            </div>
+        </div>
+
+        <div class="row mb-3">
+            <div class="col-md-6">
+                <label for="usuario_registro" class="form-label">Usuario que Registró</label>
+                <input type="text" class="form-control" id="usuario_registro" value="<%= entrada.usuario_registro.name %>" readonly>
+            </div>
+        </div>
+
+        <div class="d-flex justify-content-between">
+            <button type="button" class="btn btn-secondary" onclick="loadEntradas()">
+                <i class="fas fa-arrow-left"></i> Volver
+            </button>
+        </div>
+    </div>
+</div>
