@@ -1,0 +1,328 @@
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="card-title mb-0">
+            <i class="fas fa-filter"></i> Filtros
+            <button type="button" class="btn btn-link float-end" 
+                    onclick="toggleFilters()" 
+                    title="Expandir/Colapsar filtros">
+                <i class="fas fa-chevron-down" id="filterIcon"></i>
+            </button>
+        </h5>
+    </div>
+    <div class="card-body" id="filterSection">
+        <form id="filterForm" class="row g-3" onsubmit="applyFilters(event)">
+            <!-- Filtro por Nombre/Descripción -->
+            <div class="col-md-4">
+                <label for="filterName" class="form-label">Nombre o Descripción</label>
+                <div class="input-group">
+                    <input type="text" class="form-control" id="filterName" 
+                           value="<%= filters?.name || '' %>"
+                           placeholder="Buscar...">
+                    <button class="btn btn-outline-secondary" type="button"
+                            onclick="clearInput('filterName')">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Filtro por Categoría -->
+            <div class="col-md-4">
+                <label for="filterCategorySearch" class="form-label">Categoría</label>
+                <div class="input-group">
+                    <input type="text" class="form-control" id="filterCategorySearch" 
+                           placeholder="Buscar categoría...">
+                    <input type="hidden" id="filterCategory" 
+                           value="<%= filters?.category || '' %>">
+                    <button class="btn btn-outline-secondary" type="button"
+                            onclick="clearCategory()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <small class="text-muted">Categoría principal: 
+                    <span id="filterMainCategory">-</span>
+                </small>
+            </div>
+
+            <!-- Filtro por Precio -->
+            <div class="col-md-4">
+                <label class="form-label">Rango de Precio</label>
+                <div class="input-group">
+                    <input type="number" class="form-control" id="filterMinPrice" 
+                           placeholder="Mín" step="0.01"
+                           value="<%= filters?.minPrice || '' %>">
+                    <input type="number" class="form-control" id="filterMaxPrice" 
+                           placeholder="Máx" step="0.01"
+                           value="<%= filters?.maxPrice || '' %>">
+                    <button class="btn btn-outline-secondary" type="button"
+                            onclick="clearPriceRange()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Filtros adicionales -->
+            <div class="col-md-4">
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="filterStock"
+                           <%= filters?.stock ? 'checked' : '' %>>
+                    <label class="form-check-label" for="filterStock">
+                        Solo productos con stock
+                    </label>
+                </div>
+            </div>
+
+            <!-- Ordenamiento -->
+            <div class="col-md-4">
+                <label for="sortBy" class="form-label">Ordenar por</label>
+                <select class="form-select" id="sortBy">
+                    <option value="createdAt" <%= filters?.sortBy === 'createdAt' ? 'selected' : '' %>>Fecha</option>
+                    <option value="price" <%= filters?.sortBy === 'price' ? 'selected' : '' %>>Precio</option>
+                    <option value="name" <%= filters?.sortBy === 'name' ? 'selected' : '' %>>Nombre</option>
+                </select>
+            </div>
+
+            <div class="col-md-4">
+                <label for="sortOrder" class="form-label">Orden</label>
+                <select class="form-select" id="sortOrder">
+                    <option value="desc" <%= filters?.sortOrder === 'desc' ? 'selected' : '' %>>Descendente</option>
+                    <option value="asc" <%= filters?.sortOrder === 'asc' ? 'selected' : '' %>>Ascendente</option>
+                </select>
+            </div>
+
+            <!-- Botones de acción -->
+            <div class="col-12">
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-search"></i> Aplicar Filtros
+                </button>
+                <button type="button" class="btn btn-secondary ms-2" onclick="clearFilters()">
+                    <i class="fas fa-times"></i> Limpiar Filtros
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Sección de depuración siempre visible -->
+<div class="card mb-3">
+    <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
+        <span>Información de Filtros y Depuración</span>
+        <button class="btn btn-sm btn-light" onclick="toggleDebug()">
+            <i class="fas fa-eye"></i>
+        </button>
+    </div>
+    <div class="card-body" id="debugSection">
+        <div class="row">
+            <div class="col-md-6">
+                <h6>Parámetros de Búsqueda:</h6>
+                <pre class="bg-light p-2">
+                    <%= JSON.stringify(filters || {}, null, 2) %>
+                </pre>
+            </div>
+            <div class="col-md-6">
+                <h6>Resultados:</h6>
+                <ul class="list-group">
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        Total de Productos
+                        <span class="badge bg-primary rounded-pill">
+                            <%= pagination.total %>
+                        </span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        Página Actual
+                        <span class="badge bg-secondary rounded-pill">
+                            <%= pagination.page %>
+                        </span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        Productos por Página
+                        <span class="badge bg-info rounded-pill">
+                            <%= pagination.limit %>
+                        </span>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <% if (locals.debugInfo) { %>
+            <div class="mt-3">
+                <h6>Filtros MongoDB Aplicados:</h6>
+                <pre class="bg-light p-2">
+                    <%= JSON.stringify(debugInfo.appliedMongoFilter || {}, null, 2) %>
+                </pre>
+            </div>
+        <% } %>
+    </div>
+</div>
+
+
+<!-- Tabla responsive con diseño móvil -->
+<div class="card">
+    <div class="card-header">
+        <h5 class="card-title mb-0">Lista de Productos</h5>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-striped table-hover">
+                <!-- Encabezados de tabla -->
+                <thead class="table-light">
+                    <tr>
+                        <th>Nombre</th>
+                        <th class="d-none d-md-table-cell">Categoría</th>
+                        <th class="d-none d-md-table-cell">Precio</th>
+                        <th class="d-none d-md-table-cell">Stock</th>
+                        <th class="d-none d-md-table-cell">Imagen</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <% if(products && products.length > 0) { %>
+                        <% products.forEach(function(product) { %>
+                            <tr>
+                                <!-- Nombre con botón expandir en móvil -->
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <button class="btn btn-link btn-sm toggle-details d-md-none me-2" 
+                                                data-product-id="<%= product._id %>">
+                                            <i class="fas fa-plus-circle"></i>
+                                        </button>
+                                        (<%= product.code %>) <%= product.name %>
+                                    </div>
+                                </td>
+                                <!-- Detalles expandibles -->
+                                <td class="d-none d-md-table-cell"><%= product.category %></td>
+                                <td class="d-none d-md-table-cell">$<%= product.price %></td>
+                                <td class="d-none d-md-table-cell"><%= product.stock %></td>
+                                <td class="d-none d-md-table-cell">
+                                    <img src="<%= product.image %>" 
+                                         alt="<%= product.name %>"
+                                         style="width: 50px; height: 50px; object-fit: cover"
+                                         class="img-thumbnail">
+                                </td>
+                                <!-- Acciones -->
+                                <td>
+                                    <div class="btn-group">
+                                        <button onclick="verProducto('<%= product._id %>')" 
+                                                class="btn btn-info btn-sm">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                        <button onclick="editarProducto('<%= product._id %>')" 
+                                                class="btn btn-warning btn-sm">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <button onclick="eliminarProducto('<%= product._id %>')" 
+                                                class="btn btn-danger btn-sm">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            <!-- Fila expandible para móvil -->
+                            <tr class="detail-row d-none" id="details-<%= product._id %>">
+                                <td colspan="6">
+                                    <div class="card">
+                                        <div class="card-body">
+                                            <div class="row">
+                                                <div class="col-6">
+                                                    <p><strong>Categoría:</strong> <%= product.category %></p>
+                                                    <p><strong>Precio:</strong> $<%= product.price %></p>
+                                                    <p><strong>Stock:</strong> <%= product.stock %></p>
+                                                </div>
+                                                <div class="col-6 text-center">
+                                                    <img src="<%= product.image %>" 
+                                                         alt="<%= product.name %>"
+                                                         style="max-width: 100px; height: auto;"
+                                                         class="img-thumbnail">
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                        <% }); %>
+                    <% } else { %>
+                        <tr>
+                            <td colspan="6" class="text-center">No hay productos registrados</td>
+                        </tr>
+                    <% } %>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Estilos adicionales -->
+<style>
+    /* Animación para expandir/colapsar */
+    .detail-row {
+        transition: all 0.3s ease;
+    }
+    
+    .detail-row.show {
+        display: table-row !important;
+    }
+    
+    /* Ajustes responsive */
+    @media (max-width: 768px) {
+        .table-responsive {
+            border: 0;
+        }
+        
+        .btn-group {
+            display: flex;
+            justify-content: flex-end;
+        }
+        
+        .detail-row .card {
+            margin: 0.5rem 0;
+        }
+    }
+</style>
+
+<!-- Script para manejar la expansión -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Manejar clicks en botones de expansión
+    document.querySelectorAll('.toggle-details').forEach(button => {
+        button.addEventListener('click', function() {
+            const productId = this.getAttribute('data-product-id');
+            const detailRow = document.getElementById(`details-${productId}`);
+            const icon = this.querySelector('i');
+            
+            // Toggle clase show
+            detailRow.classList.toggle('show');
+            
+            // Cambiar icono
+            icon.classList.toggle('fa-plus-circle');
+            icon.classList.toggle('fa-minus-circle');
+        });
+    });
+});
+</script>
+
+<!-- En la sección de paginación -->
+<% if (pagination.totalPages > 1) { %>
+    <nav aria-label="Page navigation" class="mt-4">
+        <ul class="pagination justify-content-center">
+            <!-- Botón Anterior -->
+            <li class="page-item <%= pagination.page <= 1 ? 'disabled' : '' %>">
+                <a class="page-link" href="#" data-page="<%= pagination.page - 1 %>">
+                    <i class="fas fa-chevron-left"></i>
+                </a>
+            </li>
+
+            <!-- Números de página -->
+            <% for(let i = 1; i <= pagination.totalPages; i++) { %>
+                <li class="page-item <%= pagination.page === i ? 'active' : '' %>">
+                    <a class="page-link" href="#" data-page="<%= i %>"><%= i %></a>
+                </li>
+            <% } %>
+
+            <!-- Botón Siguiente -->
+            <li class="page-item <%= pagination.page >= pagination.totalPages ? 'disabled' : '' %>">
+                <a class="page-link" href="#" data-page="<%= pagination.page + 1 %>">
+                    <i class="fas fa-chevron-right"></i>
+                </a>
+            </li>
+        </ul>
+    </nav>
+<% } %>

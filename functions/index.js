@@ -1,23 +1,70 @@
 const mongoose = require('mongoose');
 const userController = require('./controllers/userController');
 const serviceController = require('./controllers/serviceController');
-
+const productController = require('./controllers/productController');
+const categoryController = require('./controllers/categoryController');
+const configuracionController = require('./controllers/configuracionController');
+const entradaController = require('./controllers/entradaController');
+const salidaController = require('./controllers/salidaController');
 const mongoUri = 'mongodb+srv://jorge4567:Raiyeris18..@cluster0.lqpe4.mongodb.net/viajes?retryWrites=true&w=majority&appName=Cluster0';
 
-// Conectar a MongoDB
+// Conectar a MongoDB con configuración mejorada
 mongoose.connect(mongoUri, { 
-  useNewUrlParser: true, 
-  useUnifiedTopology: true 
+    useNewUrlParser: true, 
+    useUnifiedTopology: true,
+    serverSelectionTimeoutMS: 15000,    // Aumentar el timeout a 15 segundos
+    socketTimeoutMS: 45000,             // Timeout para operaciones
+    maxPoolSize: 50,                    // Máximo de conexiones simultáneas
+    wtimeoutMS: 2500,                  // Timeout para operaciones de escritura
+    connectTimeoutMS: 15000            // Timeout para la conexión inicial
 }).then(() => console.log('MongoDB conectado'))
   .catch(err => console.error('Error de conexión MongoDB:', err));
 
+// Manejar eventos de conexión
+mongoose.connection.on('error', err => {
+    console.error('MongoDB connection error:', err);
+});
+
+mongoose.connection.on('disconnected', () => {
+    console.log('MongoDB disconnected');
+});
+
+mongoose.connection.on('reconnected', () => {
+    console.log('MongoDB reconnected');
+});
 const controllers = {
   users: userController,
-  services: serviceController
+  services: serviceController,
+  products: productController,
+  categories: categoryController,
+  configuracion:configuracionController,
+  entradas: entradaController,
+  salidas: salidaController
+};
+
+// Agregar headers CORS a la respuesta
+const addCorsHeaders = (response) => {
+    return {
+        ...response,
+        headers: {
+            ...response.headers,
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Headers': 'Content-Type',
+            'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS'
+        }
+    };
 };
 
 exports.handler = async (event, context) => {
   context.callbackWaitsForEmptyEventLoop = false;
+
+  // Manejar preflight OPTIONS request
+  if (event.httpMethod === 'OPTIONS') {
+      return addCorsHeaders({
+          statusCode: 200,
+          body: ''
+      });
+  }
 
   try {
     const parts = event.path.split('/').filter(part => part);
@@ -77,12 +124,10 @@ exports.handler = async (event, context) => {
 
   } catch (error) {
     console.error('Error en handler principal:', error);
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ 
-        error: 'Error interno del servidor',
-        message: error.message 
-      })
+    const errorResponse = {
+        statusCode: 500,
+        body: JSON.stringify({ error: error.message })
     };
+    return addCorsHeaders(errorResponse);
   }
 };

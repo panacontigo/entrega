@@ -1,0 +1,23 @@
+<div class="card">
+    <div class="card-header">
+        <h5 class="card-title mb-0">Configuración</h5>
+    </div>
+    <div class="card-body">
+        <form id="configuracionForm" onsubmit="handleConfiguracionSubmit(event)">
+            <div class="mb-3">
+                <label for="precio_dolar" class="form-label">Precio del Dólar</label>
+                <input type="text" class="form-control" id="precio_dolar" name="precio_dolar" 
+                       value="<%= configuracion && configuracion.precio_dolar !== null ? configuracion.precio_dolar : '' %>" required 
+                       placeholder="Ejemplo: 52.26 o 54,7" pattern="^\d+([.,]\d+)?$" title="Introduce un número decimal válido">
+            </div>
+            <div class="mb-3">
+                <label for="fecha_act_dolar" class="form-label">Fecha de Actualización</label>
+                <input type="date" class="form-control" id="fecha_act_dolar" name="fecha_act_dolar" 
+                       value="<%= configuracion && configuracion.fecha_act_dolar ? configuracion.fecha_act_dolar.toISOString().split('T')[0] : '' %>" required>
+            </div>
+            <button type="submit" class="btn btn-primary">Actualizar</button>
+        </form>
+        <button class="btn btn-danger mt-3" onclick="deleteAllProducts()">Eliminar Todos los Productos</button>
+    </div>
+</div>
+
