@@ -502,8 +502,14 @@ exports.registrarcompra = async (event) => {
             };
         }
 
-        const configuracion = await Configuracion.findOne();
-        const precioDolar = configuracion ? configuracion.precio_dolar : 0;
+        if (!data.precioDolar) {
+            return {
+                statusCode: 400,
+                body: JSON.stringify({ error: 'El precio del dólar es requerido' })
+            };
+        }
+
+        const precioDolar = data.precioDolar; // Obtener el precio del dólar desde la solicitud
 
         const entradasRegistradas = [];
         for (const item of data.entries) {
@@ -524,9 +530,9 @@ exports.registrarcompra = async (event) => {
                 tipo_entrada: 'Compra',
                 precio_unitario: producto.cost,
                 precio_venta: producto.price,
-                precio_dolar: precioDolar,
+                precio_dolar: precioDolar, // Usar el precio del dólar proporcionado
                 usuario_registro: 'Admin', // Ajustar según sea necesario
-                fecha_registro: moment.tz(new Date(), "America/Caracas").toDate()
+                fecha_registro: data.fechaCompra ? moment.tz(data.fechaCompra, "America/Caracas").toDate() : moment.tz(new Date(), "America/Caracas").toDate()
             };
 
             const entrada = new Entrada(entradaData);
@@ -547,6 +553,69 @@ exports.registrarcompra = async (event) => {
         return {
             statusCode: 500,
             body: JSON.stringify({ error: error.message })
+        };
+    }
+};
+exports.pendientes = async (event) => {
+    try {
+        const queryParams = event.queryStringParameters || {};
+        const page = parseInt(queryParams.page) || 1;
+        const limit = parseInt(queryParams.limit) || 10;
+        const skip = (page - 1) * limit;
+
+        // Filtro para entradas pendientes
+        const filter = { status: 'PENDIENTE' };
+        const sort = { fecha_registro: -1 }; // Ordenar por fecha de registro descendente
+
+        // Ejecutar consulta para obtener entradas pendientes
+        const [total, entradas] = await Promise.all([
+            Entrada.countDocuments(filter),
+            Entrada.find(filter)
+                .populate('id_producto', 'name code description') // Poblar datos del producto
+                .sort(sort)
+                .skip(skip)
+                .limit(limit)
+                .lean()
+        ]);
+
+        const totalPages = Math.ceil(total / limit);
+
+        const html = await ejs.renderFile(
+            path.join(process.env.LAMBDA_TASK_ROOT, './functions/views/entradas/pendientes.ejs'),
+            {
+                entradas,
+                title: 'Entradas Pendientes',
+                pagination: {
+                    page,
+                    limit,
+                    totalPages,
+                    total
+                }
+            }
+        );
+
+        return {
+            statusCode: 200,
+            headers: { 
+                'Content-Type': 'text/html',
+                'Access-Control-Allow-Origin': '*'
+            },
+            body: html
+        };
+
+    } catch (error) {
+        return { 
+            statusCode: 500, 
+            headers: {
+                'Content-Type': 'text/html',
+                'Access-Control-Allow-Origin': '*'
+            },
+            body: `
+                <div class="alert alert-danger">
+                    <h4>Error al cargar las entradas pendientes:</h4>
+                    <pre>${error.message}</pre>
+                </div>
+            `
         };
     }
 };

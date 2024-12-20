@@ -122,3 +122,26 @@ exports.deleteAllProducts = async (event) => {
         };
     }
 }; 
+exports.getpreciodolar = async (event) => {
+    try {
+        const configuracion = await Configuracion.findOne();
+
+        if (!configuracion) {
+            return {
+                statusCode: 404,
+                body: JSON.stringify({ message: 'Configuración no encontrada' })
+            };
+        }
+
+        return {
+            statusCode: 200,
+            body: JSON.stringify({ precio_dolar: configuracion.precio_dolar })
+        };
+    } catch (error) {
+        console.error('Error al obtener el precio del dólar:', error);
+        return {
+            statusCode: 500,
+            body: JSON.stringify({ message: error.message })
+        };
+    }
+};

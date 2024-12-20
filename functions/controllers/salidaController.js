@@ -1,8 +1,10 @@
 const ejs = require('ejs');
 const path = require('path');
-const Salida = require('../models/salida'); // Cambiado a modelo de salida
+const Salida = require('../models/salida');
 const Product = require('../models/product');
 const Configuracion = require('../models/configuracion');
+const moment = require('moment-timezone');
+
 exports.index = async (event) => {
     try {
         const queryParams = event.queryStringParameters || {};
@@ -79,7 +81,7 @@ exports.index = async (event) => {
         const totalPages = Math.ceil(total / limit);
 
         const html = await ejs.renderFile(
-            path.join(process.env.LAMBDA_TASK_ROOT, './functions/views/salidas/index.ejs'), // Cambiado a la vista de salidas
+            path.join(process.env.LAMBDA_TASK_ROOT, './functions/views/salidas/index.ejs'),
             {
                 salidas,
                 title: 'Lista de Salidas',
@@ -128,7 +130,7 @@ exports.create = async (event) => {
             const productos = await Product.find({}, 'name code');
 
             const html = await ejs.renderFile(
-                path.join(process.env.LAMBDA_TASK_ROOT, './functions/views/salidas/create.ejs'), // Cambiado a la vista de salidas
+                path.join(process.env.LAMBDA_TASK_ROOT, './functions/views/salidas/create.ejs'),
                 { 
                     title: 'Crear Salida',
                     productos
@@ -166,11 +168,7 @@ exports.create = async (event) => {
             const salida = new Salida(salidaData);
             await salida.save();
 
-            // Actualizar stock del producto
-            await Product.findByIdAndUpdate(
-                data.id_producto, 
-                { $inc: { stock: -data.cantidad } } // Decrementar el stock
-            );
+            // No se actualiza el stock del producto aquí
 
             return {
                 statusCode: 201,
@@ -206,7 +204,7 @@ exports.show = async (event) => {
         }
 
         const html = await ejs.renderFile(
-            path.join(process.env.LAMBDA_TASK_ROOT, './functions/views/salidas/show.ejs'), // Cambiado a la vista de salidas
+            path.join(process.env.LAMBDA_TASK_ROOT, './functions/views/salidas/show.ejs'),
             {
                 salida,
                 title: 'Detalles de la Salida'
@@ -220,6 +218,86 @@ exports.show = async (event) => {
         };
     } catch (error) {
         console.error('Error al mostrar salida:', error);
+        return { 
+            statusCode: 500, 
+            body: JSON.stringify({ error: error.message }) 
+        };
+    }
+};
+
+// Método para confirmar una salida
+exports.confirmar = async (event) => {
+    try {
+        const { id } = event.pathParameters;
+
+        // Encontrar la salida
+        const salida = await Salida.findById(id);
+
+        if (!salida) {
+            return {
+                statusCode: 404,
+                body: JSON.stringify({ error: 'Salida no encontrada' })
+            };
+        }
+
+        // Cambiar el estado de la salida a "COMPLETADA"
+        salida.status = 'COMPLETADA';
+        await salida.save();
+
+        // Actualizar stock del producto
+        await Product.findByIdAndUpdate(
+            salida.id_producto, 
+            { $inc: { stock: -salida.cantidad } } // Disminuir el stock al confirmar
+        );
+
+        return {
+            statusCode: 200,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                message: 'Salida confirmada exitosamente',
+                salida
+            })
+        };
+    } catch (error) {
+        console.error('Error al confirmar salida:', error);
+        return { 
+            statusCode: 500, 
+            body: JSON.stringify({ error: error.message }) 
+        };
+    }
+};
+
+// Método para confirmar todas las salidas pendientes
+exports.confirmartodas = async (event) => {
+    try {
+        // Obtener todas las salidas en estado PENDIENTE
+        const salidasPendientes = await Salida.find({ status: 'PENDIENTE' });
+
+        if (salidasPendientes.length === 0) {
+            return {
+                statusCode: 404,
+                body: JSON.stringify({ message: 'No hay salidas pendientes para confirmar' })
+            };
+        }
+
+        // Confirmar cada salida y actualizar el stock
+        for (const salida of salidasPendientes) {
+            salida.status = 'COMPLETADA';
+            await salida.save();
+
+            // Actualizar stock del producto
+            await Product.findByIdAndUpdate(
+                salida.id_producto, 
+                { $inc: { stock: -salida.cantidad } }
+            );
+        }
+
+        return {
+            statusCode: 200,
+            body: JSON.stringify({ message: 'Todas las salidas pendientes han sido confirmadas' })
+        };
+    } catch (error) {
+        console.error('Error al confirmar todas las salidas:', error);
         return { 
             statusCode: 500, 
             body: JSON.stringify({ error: error.message }) 
@@ -242,11 +320,13 @@ exports.delete = async (event) => {
             };
         }
 
-        // Revertir el stock del producto
-        await Product.findByIdAndUpdate(
-            salida.id_producto, 
-            { $inc: { stock: salida.cantidad } } // Decrementar el stock
-        );
+        // Si el estado de la salida es "COMPLETADA", revertir el stock del producto
+        if (salida.status === 'COMPLETADA') {
+            await Product.findByIdAndUpdate(
+                salida.id_producto, 
+                { $inc: { stock: salida.cantidad } }
+            );
+        }
 
         // Eliminar la salida
         await Salida.findByIdAndDelete(id);
@@ -283,7 +363,7 @@ exports.edit = async (event) => {
             }
 
             const html = await ejs.renderFile(
-                path.join(process.env.LAMBDA_TASK_ROOT, './functions/views/salidas/edit.ejs'), // Cambiado a la vista de salidas
+                path.join(process.env.LAMBDA_TASK_ROOT, './functions/views/salidas/edit.ejs'),
                 {
                     salida,
                     title: 'Editar Salida'
@@ -326,5 +406,135 @@ exports.edit = async (event) => {
     } catch (error) {
         console.error('Error en edit:', error);
         return { statusCode: 500, body: JSON.stringify({ error: error.message }) };
+    }
+};
+
+exports.obtenersalidasporfecha = async (event) => {
+    try {
+        const queryParams = event.queryStringParameters || {};
+        const fecha = queryParams.fecha;
+
+        if (!fecha) {
+            return {
+                statusCode: 400,
+                body: JSON.stringify({ error: 'La fecha es requerida' })
+            };
+        }
+
+        const fechaInicio = new Date(fecha);
+        const fechaFin = new Date(fechaInicio);
+        fechaFin.setDate(fechaFin.getDate() + 1); // Sumar un día para incluir todo el día
+
+        // Obtener las salidas que caen dentro del rango de fechas
+        const salidas = await Salida.find({
+            fecha_registro: {
+                $gte: fechaInicio,
+                $lt: fechaFin
+            }
+        })
+        .populate('id_producto', 'code name') // Poblar solo los campos code y name
+        .lean();
+
+        if (salidas.length === 0) {
+            return {
+                statusCode: 404,
+                body: JSON.stringify({ message: 'No hay salidas para la fecha seleccionada' })
+            };
+        }
+
+        // Estructurar los datos para el Excel y calcular totales
+        let totalDolares = 0;
+        let totalBs = 0;
+
+        const salidasConDatos = salidas.map(salida => {
+            const precioVenta = salida.precio_venta;
+            const cantidad = salida.cantidad;
+            const total = precioVenta * cantidad; // Total en precio de venta
+            const totalBolivares = total * salida.precio_dolar; // Total en bolívares
+
+            totalDolares += total;
+            totalBs += totalBolivares;
+
+            return {
+                'Fecha': salida.fecha_registro.toISOString().split('T')[0], // Formato YYYY-MM-DD
+                'Código': salida.id_producto.code,
+                'Descripción': salida.id_producto.name,
+                'Precio Venta': precioVenta,
+                'Cantidad': cantidad,
+                'Total': total,
+                'Precio Dólar': salida.precio_dolar,
+                'Total BS': totalBolivares
+            };
+        });
+
+        return {
+            statusCode: 200,
+            body: JSON.stringify(salidasConDatos)
+        };
+    } catch (error) {
+        console.error('Error al obtener salidas por fecha:', error);
+        return {
+            statusCode: 500,
+            body: JSON.stringify({ error: error.message })
+        };
+    }
+};
+exports.registrarVenta = async (event) => {
+    try {
+        const data = JSON.parse(event.body);
+
+        if (!Array.isArray(data.entries) || data.entries.length === 0) {
+            return {
+                statusCode: 400,
+                body: JSON.stringify({ error: 'No hay salidas para registrar' })
+            };
+        }
+
+        const configuracion = await Configuracion.findOne();
+        const precioDolar = configuracion ? configuracion.precio_dolar : 0;
+
+        const salidasRegistradas = [];
+        for (const item of data.entries) {
+            const { productId, quantity } = item;
+
+            if (!productId || !quantity || quantity <= 0) {
+                continue;
+            }
+
+            const producto = await Product.findById(productId);
+            if (!producto) {
+                continue;
+            }
+
+            const salidaData = {
+                id_producto: productId,
+                cantidad: quantity,
+                tipo_salida: 'Venta',
+                precio_unitario: producto.cost,
+                precio_venta: producto.price,
+                precio_dolar: precioDolar,
+                usuario_registro: 'Admin', // Ajustar según sea necesario
+                fecha_registro: moment.tz(new Date(), "America/Caracas").toDate()
+            };
+
+            const salida = new Salida(salidaData);
+            await salida.save();
+            salidasRegistradas.push(salida);
+        }
+
+        return {
+            statusCode: 201,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                message: 'Salidas registradas exitosamente',
+                salidas: salidasRegistradas
+            })
+        };
+    } catch (error) {
+        console.error('Error al registrar salidas de venta:', error);
+        return {
+            statusCode: 500,
+            body: JSON.stringify({ error: error.message })
+        };
     }
 };

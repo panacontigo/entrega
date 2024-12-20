@@ -2,9 +2,8 @@
     <div class="card-header">
         <h5 class="card-title mb-0">
             <i class="fas fa-filter"></i> Filtros
-            <button type="button" class="btn btn-link float-end" 
-                    onclick="toggleFilters()" 
-                    title="Expandir/Colapsar filtros">
+            <button type="button" class="btn btn-link float-end" onclick="toggleFilters()"
+                title="Expandir/Colapsar filtros">
                 <i class="fas fa-chevron-down" id="filterIcon"></i>
             </button>
         </h5>
@@ -15,11 +14,9 @@
             <div class="col-md-4">
                 <label for="filterName" class="form-label">Nombre del Producto</label>
                 <div class="input-group">
-                    <input type="text" class="form-control" id="filterName" 
-                           value="<%= filters?.name || '' %>"
-                           placeholder="Buscar...">
-                    <button class="btn btn-outline-secondary" type="button"
-                            onclick="clearInput('filterName')">
+                    <input type="text" class="form-control" id="filterName" value="<%= filters?.name || '' %>"
+                        placeholder="Buscar...">
+                    <button class="btn btn-outline-secondary" type="button" onclick="clearInput('filterName')">
                         <i class="fas fa-times"></i>
                     </button>
                 </div>
@@ -29,11 +26,9 @@
             <div class="col-md-4">
                 <label for="filterCode" class="form-label">Código del Producto</label>
                 <div class="input-group">
-                    <input type="text" class="form-control" id="filterCode" 
-                           value="<%= filters?.code || '' %>"
-                           placeholder="Buscar código...">
-                    <button class="btn btn-outline-secondary" type="button"
-                            onclick="clearInput('filterCode')">
+                    <input type="text" class="form-control" id="filterCode" value="<%= filters?.code || '' %>"
+                        placeholder="Buscar código...">
+                    <button class="btn btn-outline-secondary" type="button" onclick="clearInput('filterCode')">
                         <i class="fas fa-times"></i>
                     </button>
                 </div>
@@ -43,11 +38,9 @@
             <div class="col-md-4">
                 <label for="filterDescription" class="form-label">Descripción del Producto</label>
                 <div class="input-group">
-                    <input type="text" class="form-control" id="filterDescription" 
-                           value="<%= filters?.description || '' %>"
-                           placeholder="Buscar descripción...">
-                    <button class="btn btn-outline-secondary" type="button"
-                            onclick="clearInput('filterDescription')">
+                    <input type="text" class="form-control" id="filterDescription"
+                        value="<%= filters?.description || '' %>" placeholder="Buscar descripción...">
+                    <button class="btn btn-outline-secondary" type="button" onclick="clearInput('filterDescription')">
                         <i class="fas fa-times"></i>
                     </button>
                 </div>
@@ -56,8 +49,7 @@
             <!-- Filtro por Fecha de Registro -->
             <div class="col-md-4">
                 <label for="filterCreatedAt" class="form-label">Fecha de Registro</label>
-                <input type="date" class="form-control" id="filterCreatedAt" 
-                       value="<%= filters?.createdAt || '' %>">
+                <input type="date" class="form-control" id="filterCreatedAt" value="<%= filters?.createdAt || '' %>">
             </div>
 
             <!-- Botones de acción -->
@@ -93,37 +85,55 @@
                     </tr>
                 </thead>
                 <tbody>
-                    <% if(salidas && salidas.length > 0) { %>
+                    <% if(salidas && salidas.length> 0) { %>
                         <% salidas.forEach(function(salida) { %>
                             <tr>
                                 <td>
                                     <div class="d-flex align-items-center">
-                                        <button class="btn btn-link btn-sm toggle-details d-md-none me-2" 
-                                                data-salida-id="<%= salida._id %>">
+                                        <button class="btn btn-link btn-sm toggle-details d-md-none me-2"
+                                            data-salida-id="<%= salida._id %>">
                                             <i class="fas fa-plus-circle"></i>
                                         </button>
                                         <%= salida.id_producto.name %> (<%= salida.id_producto.code %>)
                                     </div>
                                 </td>
-                                <td class="d-none d-md-table-cell"><%= salida.cantidad %></td>
-                                <td class="d-none d-md-table-cell"><%= salida.tipo_salida %></td>
-                                <td class="d-none d-md-table-cell">$<%= salida.precio_unitario.toFixed(2) %></td>
-                                <td class="d-none d-md-table-cell"><%= salida.cliente %></td>
-                                <td class="d-none d-md-table-cell"><%= salida.fecha_registro.toLocaleDateString() %></td>
+                                <td class="d-none d-md-table-cell">
+                                    <%= salida.cantidad %>
+                                </td>
+                                <td class="d-none d-md-table-cell">
+                                    <%= salida.tipo_salida %>
+                                </td>
+                                <td class="d-none d-md-table-cell">$<%= salida.precio_unitario.toFixed(2) %>
+                                </td>
+                                <td class="d-none d-md-table-cell">
+                                    <%= salida.cliente %>
+                                </td>
+                                <td class="d-none d-md-table-cell">
+                                    <%= salida.fecha_registro.toLocaleDateString('es-VE', { day: '2-digit', month: '2-digit', year: 'numeric' }) %> </td>
                                 <td>
                                     <div class="btn-group">
-                                        <button onclick="verSalida('<%= salida._id %>')" 
-                                                class="btn btn-info btn-sm">
+                                        <button onclick="verSalida('<%= salida._id %>')" class="btn btn-info btn-sm">
                                             <i class="fas fa-eye"></i>
                                         </button>
-                                        <button onclick="editarSalida('<%= salida._id %>')" 
+                                        <% if (salida.status==="PENDIENTE" ) { %>
+                                            <button onclick="editarSalida('<%= salida._id %>')"
                                                 class="btn btn-warning btn-sm">
-                                            <i class="fas fa-edit"></i>
-                                        </button>
-                                        <button onclick="eliminarSalida('<%= salida._id %>')" 
+                                                <i class="fas fa-edit"></i>
+                                            </button>
+                                            <button onclick="eliminarSalida('<%= salida._id %>')"
                                                 class="btn btn-danger btn-sm">
-                                            <i class="fas fa-trash"></i>
-                                        </button>
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                            <button onclick="confirmarSalida('<%= salida._id %>')"
+                                                class="btn btn-success btn-sm">
+                                                <i class="fas fa-check"></i> Confirmar
+                                            </button>
+                                            <% } else if (salida.status==="COMPLETADA" ) { %>
+                                                <button onclick="eliminarSalida('<%= salida._id %>')"
+                                                    class="btn btn-danger btn-sm">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                                <% } %>
                                     </div>
                                 </td>
                             </tr>
@@ -134,25 +144,35 @@
                                         <div class="card-body">
                                             <div class="row">
                                                 <div class="col-6">
-                                                    <p><strong>Cantidad:</strong> <%= salida.cantidad %></p>
-                                                    <p><strong>Tipo Salida:</strong> <%= salida.tipo_salida %></p>
-                                                    <p><strong>Precio Unitario:</strong> $<%= salida.precio_unitario.toFixed(2) %></p>
+                                                    <p><strong>Cantidad:</strong>
+                                                        <%= salida.cantidad %>
+                                                    </p>
+                                                    <p><strong>Tipo Salida:</strong>
+                                                        <%= salida.tipo_salida %>
+                                                    </p>
+                                                    <p><strong>Precio Unitario:</strong> $<%=
+                                                            salida.precio_unitario.toFixed(2) %>
+                                                    </p>
                                                 </div>
                                                 <div class="col-6 text-center">
-                                                    <p><strong>Cliente:</strong> <%= salida.cliente %></p>
-                                                    <p><strong>Fecha Registro:</strong> <%= salida.fecha_registro.toLocaleDateString() %></p>
+                                                    <p><strong>Cliente:</strong>
+                                                        <%= salida.cliente %>
+                                                    </p>
+                                                    <p><strong>Fecha Registro:</strong>
+                                                        <%= salida.fecha_registro.toLocaleDateString() %>
+                                                    </p>
                                                 </div>
                                             </div>
                                         </div>
                                     </div>
                                 </td>
                             </tr>
-                        <% }); %>
-                    <% } else { %>
-                        <tr>
-                            <td colspan="7" class="text-center">No hay salidas registradas</td>
-                        </tr>
-                    <% } %>
+                            <% }); %>
+                                <% } else { %>
+                                    <tr>
+                                        <td colspan="7" class="text-center">No hay salidas registradas</td>
+                                    </tr>
+                                    <% } %>
                 </tbody>
             </table>
         </div>
@@ -160,7 +180,7 @@
 </div>
 
 <!-- Paginación -->
-<% if (pagination.totalPages > 1) { %>
+<% if (pagination.totalPages> 1) { %>
     <nav aria-label="Page navigation" class="mt-4">
         <ul class="pagination justify-content-center">
             <!-- Botón Anterior -->
@@ -171,46 +191,47 @@
             </li>
 
             <!-- Números de página -->
-            <% for(let i = 1; i <= pagination.totalPages; i++) { %>
+            <% for(let i=1; i <=pagination.totalPages; i++) { %>
                 <li class="page-item <%= pagination.page === i ? 'active' : '' %>">
-                    <a class="page-link" href="#" data-page="<%= i %>"><%= i %></a>
+                    <a class="page-link" href="#" data-page="<%= i %>">
+                        <%= i %>
+                    </a>
                 </li>
-            <% } %>
+                <% } %>
 
-            <!-- Botón Siguiente -->
-            <li class="page-item <%= pagination.page >= pagination.totalPages ? 'disabled' : '' %>">
-                <a class="page-link" href="#" data-page="<%= pagination.page + 1 %>">
-                    <i class="fas fa-chevron-right"></i>
-                </a>
-            </li>
+                    <!-- Botón Siguiente -->
+                    <li class="page-item <%= pagination.page >= pagination.totalPages ? 'disabled' : '' %>">
+                        <a class="page-link" href="#" data-page="<%= pagination.page + 1 %>">
+                            <i class="fas fa-chevron-right"></i>
+                        </a>
+                    </li>
         </ul>
     </nav>
-<% } %>
+    <% } %>
+        <!-- Estilos adicionales -->
+        <style>
+            /* Animación para expandir/colapsar */
+            .detail-row {
+                transition: all 0.3s ease;
+            }
 
-<!-- Estilos adicionales -->
-<style>
-    /* Animación para expandir/colapsar */
-    .detail-row {
-        transition: all 0.3s ease;
-    }
-    
-    .detail-row.show {
-        display: table-row !important;
-    }
-    
-    /* Ajustes responsive */
-    @media (max-width: 768px) {
-        .table-responsive {
-            border: 0;
-        }
-        
-        .btn-group {
-            display: flex;
-            justify-content: flex-end;
-        }
-        
-        .detail-row .card {
-            margin: 0.5rem 0;
-        }
-    }
-</style> 
+            .detail-row.show {
+                display: table-row !important;
+            }
+
+            /* Ajustes responsive */
+            @media (max-width: 768px) {
+                .table-responsive {
+                    border: 0;
+                }
+
+                .btn-group {
+                    display: flex;
+                    justify-content: flex-end;
+                }
+
+                .detail-row .card {
+                    margin: 0.5rem 0;
+                }
+            }
+        </style>

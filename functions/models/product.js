@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const moment = require('moment-timezone');
 const { isValidCategory } = require('../utils/categories');
 const { isValidUbicacion } = require('../utils/ubicaciones');
 
@@ -68,7 +69,12 @@ const productSchema = new mongoose.Schema({
     },
     createdAt: { 
         type: Date, 
-        default: Date.now,
+        default: () => moment.tz(Date.now(), "America/Caracas").toDate(),
+        index: true 
+    },
+    updatedAt: { 
+        type: Date, 
+        default: () => moment.tz(Date.now(), "America/Caracas").toDate(),
         index: true 
     },
     precio_bolivares: {  // Nuevo campo para el precio en bolívares
@@ -110,6 +116,12 @@ productSchema.methods.calculatePrecioBolivares = async function(precioDolar) {
 
     await this.save();
 };
+
+// Middleware para ajustar la fecha de actualización antes de guardar
+productSchema.pre('save', function(next) {
+    this.updatedAt = moment.tz(new Date(), "America/Caracas").toDate();
+    next();
+});
 
 const Product = mongoose.model('productos', productSchema);
 
