@@ -9,17 +9,30 @@
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://code.jquery.com/ui/1.13.2/jquery-ui.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/annyang@2.6.1/dist/annyang.min.js"></script>
     <link rel="stylesheet" href="https://code.jquery.com/ui/1.13.2/themes/base/jquery-ui.css">
      <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
     <style>
         .container {
             margin-top: 20px;
         }
+        .tableprod {
+            width: auto;
+            margin: 0 auto; /* Centrar la tabla */
+        }
     </style>
+
 </head>
 <body>
     <div class="container">
         <h2>Punto de Compra</h2>
+         <div class="mb-3">
+           <div id="status" > </div>
+           <div id  ="detectedWords" > </div>
+           <button class ="btn btn-primary mt-3" id="startButton">start</button>
+           <button class="btn btn-primary mt-3" id="stopButton">stop</button>
+           <div id="productos" > </div>
+        </div>
         <div class="mb-3">
             <label for="productSearch" class="form-label">Producto</label>
             <input type="text" class="form-control" id="productSearch" placeholder="Buscar producto..." required>
@@ -53,6 +66,7 @@
         
         <!-- Nuevo botón para registrar entradas -->
         <button class="btn btn-primary mt-3" id="registerEntriesBtn">Registrar Entradas</button>
+     
     </div>
     <!-- Contenedor para la tabla de entradas pendientes -->
     <div class="container mt-5">
@@ -63,6 +77,7 @@
     <script src="/js/handlersAjax.js"></script>
     <script>
         const ajaxHandler = new AjaxHandler('products-container');
+          let productos = [];
         $(document).ready(function () {
             loadPrecioDolar();
             loadEntradasPendientes();
@@ -102,7 +117,181 @@
             $("#registerEntriesBtn").click(function () {
                 registerEntries();
             });
+            
+            
+            if (annyang) {
+                annyang.setLanguage('es-ES');
+                const commands = {
+                    'agregar *cantidad de *codigo': (cantidad, codigo) => {
+                        cantidad = parseInt(cantidad);
+                        codigo = codigo.trim();
+                        if (!isNaN(cantidad) && codigo) {
+                            const productoExistente = productos.find(producto => producto.codigo === codigo);
+                            if (productoExistente) {
+                                productoExistente.cantidad += cantidad;
+                                console.log(productoExistente);
+                            } else {
+                                productos.push({ codigo, cantidad });
+                            }
+                            actualizarProductos();
+                           // document.getElementById('status').textContent = `Producto agregado: ${cantidad} de ${codigo}`;
+                        }
+                    },
+                    'procesa la compra': () => {
+                        procesarListado();
+                    },
+                    '*word': function(word) {
+                    const detectedWordsList = document.getElementById('detectedWords');
+                    const newWordItem = document.createElement('li');
+                    newWordItem.textContent = word;
+                    newWordItem.classList.add('list-group-item');
+                    detectedWordsList.appendChild(newWordItem);
+                }
+                };
+
+                annyang.addCommands(commands);
+
+                annyang.addCallback('start', () => {
+                   document.getElementById('status').textContent = 'Escuchando...';
+                    document.getElementById('startButton').disabled = true;
+                    document.getElementById('stopButton').disabled = false;
+                });
+
+                annyang.addCallback('end', () => {
+                    document.getElementById('status').textContent = 'Reconocimiento de voz detenido';
+                    document.getElementById('startButton').disabled = false;
+                    document.getElementById('stopButton').disabled = true;
+                });
+
+                annyang.addCallback('error', (event) => {
+                    console.error(event.error);
+                   // document.getElementById('status').textContent = 'Error: ' + event.error;
+                });
+
+                document.getElementById('startButton').addEventListener('click', () => {
+                    annyang.start({ autoRestart: true, continuous: true });
+                });
+
+                document.getElementById('stopButton').addEventListener('click', () => {
+                    annyang.abort();
+                });
+            } else {
+                document.getElementById('status').textContent = 'Tu navegador no soporta reconocimiento de voz.';
+            }
+
         });
+        function eliminarTabla() {
+            const productList = document.getElementById('productos');
+            productList.innerHTML = ''; // Limpiar el contenido del contenedor, eliminando la tabla
+        }
+        function actualizarProductos() {
+            const productList = document.getElementById('productos');
+            productList.innerHTML = ''; // Limpiar la lista actual
+
+            // Crear una tabla
+            const table = document.createElement('table');
+            table.classList.add('tableprod','table', 'table-bordered', 'table-striped', 'table-sm', 'w-auto'); // Agregar clases de Bootstrap
+
+            // Crear el encabezado de la tabla
+            const thead = document.createElement('thead');
+            const headerRow = document.createElement('tr');
+            const headers = ['Código', 'Cantidad'];
+            headers.forEach(text => {
+                const th = document.createElement('th');
+                th.textContent = text;
+                th.style.whiteSpace = 'nowrap'; // Asegurar que el texto no se extienda
+                headerRow.appendChild(th);
+            });
+            thead.appendChild(headerRow);
+            table.appendChild(thead);
+
+            // Crear el cuerpo de la tabla
+            const tbody = document.createElement('tbody');
+            productos.forEach(producto => {
+                const row = document.createElement('tr');
+
+                const codigoCell = document.createElement('td');
+                codigoCell.textContent = producto.codigo;
+                codigoCell.style.whiteSpace = 'nowrap'; // Asegurar que el texto no se extienda
+                row.appendChild(codigoCell);
+
+                const cantidadCell = document.createElement('td');
+                cantidadCell.textContent = producto.cantidad;
+                cantidadCell.style.whiteSpace = 'nowrap'; // Asegurar que el texto no se extienda
+                row.appendChild(cantidadCell);
+
+                tbody.appendChild(row);
+            });
+            table.appendChild(tbody);
+
+            // Agregar la tabla al contenedor
+            productList.appendChild(table);
+        }
+        async function procesarListado() {
+            const codigos = productos.map(producto => producto.codigo);
+            try {
+                const response = await fetch('/api/products/procesarlistadocompra', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ codigos })
+                });
+
+                if (response.ok) {
+                    const productosProcesados = await response.json();
+                    console.log('Productos procesados:', productosProcesados);
+                    // Llamar a la nueva función para agregar productos procesados a la tabla
+                    addProcessedProductsToTable(productosProcesados);
+                } else {
+                    const errorData = await response.json();
+                    console.error('Error al procesar el listado:', errorData.error);
+                }
+            } catch (error) {
+                console.error('Error al procesar el listado:', error);
+            }
+        }
+        function addProcessedProductsToTable(productosProcesados) {
+            // Recorrer los productos procesados por el servidor
+            productosProcesados.forEach(productoProcesado => {
+                // Buscar en la lista de productos generada por el procesamiento de voz
+                const productoVoz = productos.find(producto => producto.codigo === productoProcesado.code);
+                
+                // Si se encuentra el producto, utilizar la cantidad de la lista de productos de voz
+                if (productoVoz) {
+                    const rowId = `product-${productoProcesado._id}`;
+                    const existingRow = $(`#${rowId}`);
+
+                    if (existingRow.length) {
+                        // Si el producto ya está en la tabla, solo actualiza la cantidad
+                        const quantityInput = existingRow.find('.quantity-input');
+                        const currentQuantity = parseInt(quantityInput.val());
+                        const newQuantity = currentQuantity + productoVoz.cantidad; // Sumar la cantidad de la lista de productos de voz
+                        quantityInput.val(newQuantity);
+                        updateTotal();
+                    } else {
+                        // Agregar nuevo producto a la tabla
+                        const newRow = `
+                            <tr id="${rowId}">
+                                <td>
+                                    ${productoProcesado.code} - ${productoProcesado.name} - <br/> - $ ${productoProcesado.cost}
+                                </td>
+                                <td>
+                                    <input type="number" class="form-control quantity-input" value="${productoVoz.cantidad}" min="1" onchange="updateTotal()">
+                                </td>
+                                <td>
+                                    <button class="btn btn-danger" onclick="removeProduct('${rowId}')">Eliminar</button>
+                                </td>
+                            </tr>
+                        `;
+                        $('#productsTable tbody').append(newRow);
+                        updateTotal();
+                    }
+                }
+            });
+            productos = [];
+            eliminarTabla();
+        }
         async function loadPrecioDolar() {
             try {
                 const response = await fetch('/api/configuracion/getpreciodolar'); // Nueva ruta para obtener solo el precio del dólar

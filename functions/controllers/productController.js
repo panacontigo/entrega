@@ -401,3 +401,29 @@ exports.list = async (event) => {
         };
     }
 }; 
+exports.procesarlistadocompra = async (event) => {
+    try {
+        const data = JSON.parse(event.body);
+        const { codigos } = data;
+
+        if (!Array.isArray(codigos) || codigos.length === 0) {
+            return {
+                statusCode: 400,
+                body: JSON.stringify({ error: 'No se proporcionaron códigos de productos' })
+            };
+        }
+
+        const productos = await Product.find({ code: { $in: codigos } }, 'code name cost _id').lean();
+
+        return {
+            statusCode: 200,
+            body: JSON.stringify(productos)
+        };
+    } catch (error) {
+        console.error('Error al procesar el listado de productos:', error);
+        return {
+            statusCode: 500,
+            body: JSON.stringify({ error: 'Error al procesar el listado de productos' })
+        };
+    }
+};
