@@ -1,9 +1,5 @@
 const ejs = require('ejs');
 const path = require('path');
-
-const mongoose = require('mongoose');
-
-
 const Salida = require('../models/salida');
 const Product = require('../models/product');
 const Configuracion = require('../models/configuracion');
@@ -251,7 +247,7 @@ exports.confirmar = async (event) => {
         // Actualizar stock del producto
         await Product.findByIdAndUpdate(
             salida.id_producto, 
-            { $inc: { stock: -salida.cantidad } } // Disminuir el stock solo al confirmar
+            { $inc: { stock: -salida.cantidad } } // Disminuir el stock al confirmar
         );
 
         return {
@@ -270,6 +266,7 @@ exports.confirmar = async (event) => {
         };
     }
 };
+
 // Método para confirmar todas las salidas pendientes
 exports.confirmartodas = async (event) => {
     try {
@@ -482,22 +479,19 @@ exports.obtenersalidasporfecha = async (event) => {
         };
     }
 };
-
-exports.registrarventa = async (event) => {
-	
-    const session = await mongoose.startSession();
-    session.startTransaction();
+exports.registrarVenta = async (event) => {
     try {
         const data = JSON.parse(event.body);
 
         if (!Array.isArray(data.entries) || data.entries.length === 0) {
-            await session.abortTransaction();
-            session.endSession();
             return {
                 statusCode: 400,
-                body: JSON.stringify({ error: 'No hay productos para registrar' })
+                body: JSON.stringify({ error: 'No hay salidas para registrar' })
             };
         }
+
+        const configuracion = await Configuracion.findOne();
+        const precioDolar = configuracion ? configuracion.precio_dolar : 0;
 
         const salidasRegistradas = [];
         for (const item of data.entries) {
@@ -507,127 +501,40 @@ exports.registrarventa = async (event) => {
                 continue;
             }
 
-            const producto = await Product.findById(productId).session(session);
+            const producto = await Product.findById(productId);
             if (!producto) {
-                await session.abortTransaction();
-                session.endSession();
-                return {
-                    statusCode: 404,
-                    body: JSON.stringify({ error: `Producto con ID ${productId} no encontrado` })
-                };
-            }
-
-            if (producto.stock < quantity) {
-                await session.abortTransaction();
-                session.endSession();
-                return {
-                    statusCode: 400,
-                    body: JSON.stringify({ error: `Stock insuficiente para el producto ${producto.name}` })
-                };
+                continue;
             }
 
             const salidaData = {
                 id_producto: productId,
                 cantidad: quantity,
                 tipo_salida: 'Venta',
-                precio_unitario: producto.price,
+                precio_unitario: producto.cost,
                 precio_venta: producto.price,
+                precio_dolar: precioDolar,
                 usuario_registro: 'Admin', // Ajustar según sea necesario
-                fecha_registro: new Date()
+                fecha_registro: moment.tz(new Date(), "America/Caracas").toDate()
             };
 
             const salida = new Salida(salidaData);
-            await salida.save({ session });
-
-            // Actualizar stock del producto
-            producto.stock -= quantity;
-            await producto.save({ session });
-
+            await salida.save();
             salidasRegistradas.push(salida);
         }
-
-        await session.commitTransaction();
-        session.endSession();
 
         return {
             statusCode: 201,
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                message: 'Venta registrada exitosamente',
+                message: 'Salidas registradas exitosamente',
                 salidas: salidasRegistradas
             })
         };
     } catch (error) {
-        await session.abortTransaction();
-        session.endSession();
-        console.error('Error al registrar venta:', error);
+        console.error('Error al registrar salidas de venta:', error);
         return {
             statusCode: 500,
             body: JSON.stringify({ error: error.message })
-        };
-    }
-};
-
-exports.pendientes = async (event) => {
-    try {
-        const queryParams = event.queryStringParameters || {};
-        const page = parseInt(queryParams.page) || 1;
-        const limit = parseInt(queryParams.limit) || 10;
-        const skip = (page - 1) * limit;
-
-        // Filtro para salidas pendientes
-        const filter = { status: 'PENDIENTE' };
-        const sort = { fecha_registro: -1 }; // Ordenar por fecha de registro descendente
-
-        // Ejecutar consulta para obtener salidas pendientes
-        const [total, salidas] = await Promise.all([
-            Salida.countDocuments(filter),
-            Salida.find(filter)
-                .populate('id_producto', 'name code description') // Poblar datos del producto
-                .sort(sort)
-                .skip(skip)
-                .limit(limit)
-                .lean()
-        ]);
-
-        const totalPages = Math.ceil(total / limit);
-
-        const html = await ejs.renderFile(
-            path.join(process.env.LAMBDA_TASK_ROOT, './functions/views/salidas/pendientes.ejs'),
-            {
-                salidas,
-                title: 'Salidas Pendientes',
-                pagination: {
-                    page,
-                    limit,
-                    totalPages,
-                    total
-                }
-            }
-        );
-
-        return {
-            statusCode: 200,
-            headers: { 
-                'Content-Type': 'text/html',
-                'Access-Control-Allow-Origin': '*'
-            },
-            body: html
-        };
-
-    } catch (error) {
-        return { 
-            statusCode: 500, 
-            headers: {
-                'Content-Type': 'text/html',
-                'Access-Control-Allow-Origin': '*'
-            },
-            body: `
-                <div class="alert alert-danger">
-                    <h4>Error al cargar las salidas pendientes:</h4>
-                    <pre>${error.message}</pre>
-                </div>
-            `
         };
     }
 };
